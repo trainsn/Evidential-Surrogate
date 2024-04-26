@@ -1,0 +1,8 @@
+__pycache__
+
+/tmp
+/datasets/faces
+/datasets/MNIST
+/datasets/nyx
+
+/models
