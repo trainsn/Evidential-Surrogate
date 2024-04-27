@@ -1,8 +1,6 @@
 __pycache__
 
-/tmp
-/datasets/faces
-/datasets/MNIST
-/datasets/nyx
+*.o*
+*.npy
 
-/models
+models

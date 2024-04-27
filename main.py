@@ -32,8 +32,6 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=1,
                                             help="random seed (default: 1)")
 
-    parser.add_argument("--root", required=True, type=str,
-                                            help="root of the dataset")
     parser.add_argument("--resume", type=str, default="",
                                             help="path to the latest checkpoint (default: none)")
 
@@ -57,13 +55,13 @@ def parse_args():
                                             help="batch size for training (default: 32)")
     parser.add_argument("--start-epoch", type=int, default=0,
                                             help="start epoch number (default: 0)")
-    parser.add_argument("--epochs", type=int, default=10,
-                                            help="number of epochs to train (default: 10)")
+    parser.add_argument("--epochs", type=int, default=50000,
+                                            help="number of epochs to train")
 
-    parser.add_argument("--log-every", type=int, default=10,
-                                            help="log training status every given number of batches (default: 10)")
-    parser.add_argument("--check-every", type=int, default=20,
-                                            help="save checkpoint every given number of epochs (default: 20)")
+    parser.add_argument("--log-every", type=int, default=40,
+                                            help="log training status every given number of batches")
+    parser.add_argument("--check-every", type=int, default=2000,
+                                            help="save checkpoint every given number of epochs")
 
     return parser.parse_args()
 
@@ -79,23 +77,6 @@ def main(args):
     # set random seed
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-
-    # data loader
-    train_dataset = YeastDataset(
-            root=args.root,
-            train=True,
-            transform=transforms.Compose([Normalize(), ToTensor()]))
-
-    test_dataset = YeastDataset(
-            root=args.root,
-            train=False,
-            transform=transforms.Compose([Normalize(), ToTensor()]))
-
-    kwargs = {"num_workers": 4, "pin_memory": True} if args.cuda else {}
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                                                        shuffle=True, **kwargs)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
-                                                     shuffle=True, **kwargs)
 
     # model
     def weights_init(m):
@@ -123,9 +104,8 @@ def main(args):
 
     g_model.to(device)
 
-    mse_criterion = nn.MSELoss(reduction='none')
+    mse_criterion = nn.MSELoss()
     train_losses, test_losses = [], []
-    d_losses, g_losses = [], []
 
     # optimizer
     g_optimizer = optim.Adam(g_model.parameters(), lr=args.lr,
@@ -143,87 +123,63 @@ def main(args):
             test_losses = checkpoint["test_losses"]
             print("=> loaded checkpoint {} (epoch {})"
                     .format(args.resume, checkpoint["epoch"]))
+            
+    params, C42a_data, sample_weight = ReadYeastDataset()
+    train_split = torch.from_numpy(np.load('train_split.npy'))
+    train_params, train_C42a_data, train_sample_weight = params[train_split], C42a_data[train_split], sample_weight[train_split]
+    test_params, test_C42a_data = params[~train_split], C42a_data[~train_split]
+    len_train = train_params.shape[0]
+    num_batches = (len_train - 1) // args.batch_size + 1
 
     # main loop
-    for epoch in tqdm(range(args.start_epoch, args.epochs)):
+    for epoch in range(args.start_epoch, args.epochs):
         # training...
         g_model.train()
         train_loss = 0.
 
-        C42_data, PF_C42a, sample_weight = ReadYeastDataset(self.root, train)
+        for i in range(num_batches): 
+            e_rndidx = torch.multinomial(train_sample_weight.flatten(), args.batch_size, replacement=True)
+            sub_params = train_params[e_rndidx]
+            sub_data = train_C42a_data[e_rndidx]
 
-        # for 
-        #     g_optimizer.zero_grad()
-        #     fake_data = g_model(sparams)
+            g_optimizer.zero_grad()
+            fake_data = g_model(sub_params)[:, 0]
 
-        #     loss = (mse_criterion(image, fake_data) * sample_weight).mean()
+            loss = mse_criterion(sub_data, fake_data)
+
+            loss.backward()
+            g_optimizer.step()
+            train_loss += loss.item()
 
 
-        #     # mse loss
-        #     if args.mse_loss:
-        #         mse_loss = 
-        #         loss += mse_loss
+        if (epoch + 1) % args.log_every == 0:
+            print("====> Epoch: {} Average loss: {:.4f}".format(
+                epoch + 1, train_loss / num_batches))
 
-        #     loss.backward()
-        #     g_optimizer.step()
-        #     train_loss += loss.item() * len(sparams)
-
-        #     # log training status
-        #     if i % args.log_every == 0:
-        #         print("Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
-        #             epoch, i * len(sparams), len(train_loader.dataset),
-        #             100. * i / len(train_loader),
-        #             loss.item()))
-        #         train_losses.append(loss.item())
-
-        # print("====> Epoch: {} Average loss: {:.4f}".format(
-        #     epoch, train_loss / len(train_loader.dataset)))
-
-        # # testing...
+        # testing...
         # g_model.eval()
-        # test_loss = 0.
-        # with torch.no_grad():
-        #     for i, sample in enumerate(test_loader):
-        #         image = sample["image"].to(device)
-        #         sparams = sample["sparams"].to(device)
-        #         vparams = sample["vparams"].to(device)
-        #         fake_image = g_model(sparams, vparams)
-        #         test_loss += mse_criterion(image, fake_image).item() * len(sparams)
+        test_loss = 0.
+        with torch.no_grad():
+            fake_data = g_model(test_params)[:, 0]
+            test_loss = mse_criterion(test_C42a_data, fake_data).item()
 
-        # test_losses.append(test_loss / len(test_loader.dataset))
-        # print("====> Epoch: {} Test set loss: {:.4f}".format(
-        #     epoch, test_losses[-1]))
+        test_losses.append(test_loss)
+        if (epoch + 1) % args.log_every == 0:
+            print("====> Epoch: {} Test set loss: {:.4f}".format(
+                epoch + 1, test_losses[-1]))
 
-        # # saving...
-        # if epoch % args.check_every == 0:
-        #     print("=> saving checkpoint at epoch {}".format(epoch))
-        #     if args.gan_loss != "none":
-        #         torch.save({"epoch": epoch + 1,
-        #                                 "g_model_state_dict": g_model.state_dict(),
-        #                                 "g_optimizer_state_dict": g_optimizer.state_dict(),
-        #                                 "d_model_state_dict": d_model.state_dict(),
-        #                                 "d_optimizer_state_dict": d_optimizer.state_dict(),
-        #                                 "d_losses": d_losses,
-        #                                 "g_losses": g_losses,
-        #                                 "train_losses": train_losses,
-        #                                 "test_losses": test_losses},
-        #                              os.path.join(args.root, "model_" + str(args.mse_loss) + "_" + \
-        #                                                         args.perc_loss + "_" + str(args.gan_loss) + "_" + \
-        #                                                         str(epoch) + ".pth.tar"))
-        #     else:
-        #         torch.save({"epoch": epoch + 1,
-        #                                 "g_model_state_dict": g_model.state_dict(),
-        #                                 "g_optimizer_state_dict": g_optimizer.state_dict(),
-        #                                 "train_losses": train_losses,
-        #                                 "test_losses": test_losses},
-        #                              os.path.join(args.root, "model_" + str(args.mse_loss) + "_" + \
-        #                                                         args.perc_loss + "_" + str(args.gan_loss) + "_" + \
-        #                                                         str(epoch) + ".pth.tar"))
+        # saving...
+        if (epoch + 1) % args.check_every == 0:
+            print("=> saving checkpoint at epoch {}".format(epoch))
+            torch.save({"epoch": epoch + 1,
+                        "g_model_state_dict": g_model.state_dict(),
+                        "g_optimizer_state_dict": g_optimizer.state_dict(),
+                        "train_losses": train_losses,
+                        "test_losses": test_losses},
+                        os.path.join("model_" + str(epoch + 1) + ".pth.tar"))
 
-        #     torch.save(g_model.state_dict(),
-        #                          os.path.join(args.root, "model_" + str(args.mse_loss) + "_" + \
-        #                                                     args.perc_loss + "_" + str(args.gan_loss) + "_" + \
-        #                                                     str(epoch) + ".pth"))
+            torch.save(g_model.state_dict(),
+                       os.path.join("model_" + str(epoch + 1) + ".pth"))
 
 if __name__ == "__main__":
     main(parse_args())
