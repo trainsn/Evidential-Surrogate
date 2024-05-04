@@ -4,3 +4,4 @@
 #PBS -l nodes=1:ppn=1:gpus=1
 
 python -u main.py
+# python -u new_MLP_Yeast_dropout.py 

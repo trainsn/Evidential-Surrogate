@@ -23,24 +23,12 @@ class Generator(nn.Module):
 
         # simulation parameters subnet
         self.sparams_subnet = nn.Sequential(
-            nn.Linear(dsp, dspe), nn.ReLU(),
-            nn.Linear(dspe, dspe), nn.ReLU(),
-            nn.Linear(dspe, ch * 4 * 400)
-        )
-
-        # image generation subnet
-        self.data_subnet = nn.Sequential(
-            BasicBlockGenerator(ch * 4, ch * 2, kernel_size=3, stride=1, padding=1),
-            BasicBlockGenerator(ch * 2, ch, kernel_size=3, stride=1, padding=1),
-            nn.InstanceNorm1d(ch),
-            nn.ReLU(),
-            nn.Conv1d(ch, 1, kernel_size=3, stride=1, padding=1),
+            nn.Linear(dsp, 1024), nn.ReLU(),
+            nn.Linear(1024, 800), nn.ReLU(),
+            nn.Linear(800, 500), nn.ReLU(),
+            nn.Linear(500, 400)
         )
 
     def forward(self, sp):
-        sp = self.sparams_subnet(sp)
-
-        x = sp.view(sp.size(0), self.ch * 4, 400)
-        x = self.data_subnet(x)
-
+        x = self.sparams_subnet(sp)
         return x

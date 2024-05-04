@@ -60,7 +60,7 @@ def parse_args():
 
     parser.add_argument("--log-every", type=int, default=40,
                                             help="log training status every given number of batches")
-    parser.add_argument("--check-every", type=int, default=2000,
+    parser.add_argument("--check-every", type=int, default=200,
                                             help="save checkpoint every given number of epochs")
 
     return parser.parse_args()
@@ -81,24 +81,23 @@ def main(args):
     # model
     def weights_init(m):
         if isinstance(m, nn.Linear):
-            nn.init.orthogonal_(m.weight)
+            nn.init.xavier_normal_(m.weight)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
-        elif isinstance(m, nn.Conv2d):
-            nn.init.orthogonal_(m.weight)
+        elif isinstance(m, nn.Conv1d):
+            nn.init.xavier_normal_(m.weight)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
 
     def add_sn(m):
         for name, c in m.named_children():
             m.add_module(name, add_sn(c))
-        if isinstance(m, (nn.Linear, nn.Conv2d)):
+        if isinstance(m, (nn.Linear, nn.Conv1d)):
             return nn.utils.spectral_norm(m, eps=1e-4)
         else:
             return m
 
     g_model = Generator(args.dsp, args.dspe, args.ch)
-    g_model.apply(weights_init)
     # if args.sn:
     #     g_model = add_sn(g_model)
 
@@ -125,6 +124,7 @@ def main(args):
                     .format(args.resume, checkpoint["epoch"]))
             
     params, C42a_data, sample_weight = ReadYeastDataset()
+    params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
     train_split = torch.from_numpy(np.load('train_split.npy'))
     train_params, train_C42a_data, train_sample_weight = params[train_split], C42a_data[train_split], sample_weight[train_split]
     test_params, test_C42a_data = params[~train_split], C42a_data[~train_split]
@@ -137,13 +137,13 @@ def main(args):
         g_model.train()
         train_loss = 0.
 
-        for i in range(num_batches): 
+        for _ in range(num_batches): 
             e_rndidx = torch.multinomial(train_sample_weight.flatten(), args.batch_size, replacement=True)
             sub_params = train_params[e_rndidx]
             sub_data = train_C42a_data[e_rndidx]
 
             g_optimizer.zero_grad()
-            fake_data = g_model(sub_params)[:, 0]
+            fake_data = g_model(sub_params)
 
             loss = mse_criterion(sub_data, fake_data)
 
@@ -160,7 +160,7 @@ def main(args):
         # g_model.eval()
         test_loss = 0.
         with torch.no_grad():
-            fake_data = g_model(test_params)[:, 0]
+            fake_data = g_model(test_params)
             test_loss = mse_criterion(test_C42a_data, fake_data).item()
 
         test_losses.append(test_loss)
@@ -176,10 +176,10 @@ def main(args):
                         "g_optimizer_state_dict": g_optimizer.state_dict(),
                         "train_losses": train_losses,
                         "test_losses": test_losses},
-                        os.path.join("model_" + str(epoch + 1) + ".pth.tar"))
+                        os.path.join("models", "model_" + str(epoch + 1) + ".pth.tar"))
 
             torch.save(g_model.state_dict(),
-                       os.path.join("model_" + str(epoch + 1) + ".pth"))
+                       os.path.join("models", "model_" + str(epoch + 1) + ".pth"))
 
 if __name__ == "__main__":
     main(parse_args())

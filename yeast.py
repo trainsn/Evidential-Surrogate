@@ -6,9 +6,6 @@ import os
 
 import numpy as np
 
-import torch
-from torch.utils.data import Dataset, DataLoader
-
 import pdb
 
 def read_data_from_file(filename):
@@ -46,7 +43,6 @@ def ReadYeastDataset():
     C42a_dat = np.concatenate(C42a_dat, axis=0) if C42a_dat else np.array([], dtype=float)
     PF_C42a = np.concatenate(PF_C42a, axis=0) if PF_C42a else np.array([], dtype=float)
 
-    samp_weight1 = np.ones_like(PF_C42a)
-    samp_weight1[PF_C42a >= 0.35] = 3
+    samp_weight1 = np.where(PF_C42a >= 0.35, 3, 1)
 
-    return torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_dat).float().cuda(), torch.from_numpy(samp_weight1).float().cuda()
+    return params, C42a_dat, samp_weight1
