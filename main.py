@@ -104,6 +104,7 @@ def main(args):
     g_model.to(device)
 
     mse_criterion = nn.MSELoss()
+    l1_criterion = nn.L1Loss()
     train_losses, test_losses = [], []
 
     # optimizer
@@ -143,7 +144,7 @@ def main(args):
             sub_data = train_C42a_data[e_rndidx]
 
             g_optimizer.zero_grad()
-            fake_data = g_model(sub_params)
+            fake_data = g_model(sub_params) #[:, 0]
 
             loss = mse_criterion(sub_data, fake_data)
 
@@ -153,7 +154,7 @@ def main(args):
 
 
         if (epoch + 1) % args.log_every == 0:
-            print("====> Epoch: {} Average loss: {:.4f}".format(
+            print("====> Epoch: {} Average loss: {:.6f}".format(
                 epoch + 1, train_loss / num_batches))
 
         # testing...
@@ -165,7 +166,7 @@ def main(args):
 
         test_losses.append(test_loss)
         if (epoch + 1) % args.log_every == 0:
-            print("====> Epoch: {} Test set loss: {:.4f}".format(
+            print("====> Epoch: {} Test set loss: {:.6f}".format(
                 epoch + 1, test_losses[-1]))
 
         # saving...

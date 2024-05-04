@@ -43,6 +43,9 @@ def ReadYeastDataset():
     C42a_dat = np.concatenate(C42a_dat, axis=0) if C42a_dat else np.array([], dtype=float)
     PF_C42a = np.concatenate(PF_C42a, axis=0) if PF_C42a else np.array([], dtype=float)
 
+    dmin, dmax = C42a_dat.min(), C42a_dat.max()
+    C42a_dat_scaled = 2 * (C42a_dat - dmin) / (dmax - dmin) - 1
+
     samp_weight1 = np.where(PF_C42a >= 0.35, 3, 1)
 
-    return params, C42a_dat, samp_weight1
+    return params, C42a_dat_scaled, samp_weight1

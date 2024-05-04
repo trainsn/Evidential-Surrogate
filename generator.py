@@ -6,8 +6,6 @@ import torch.nn.functional as F
 
 import pdb
 
-from resblock import BasicBlockGenerator
-
 class Generator(nn.Module):
     def __init__(self, dsp=3, dspe=512, ch=1):
         """
@@ -26,7 +24,8 @@ class Generator(nn.Module):
             nn.Linear(dsp, 1024), nn.ReLU(),
             nn.Linear(1024, 800), nn.ReLU(),
             nn.Linear(800, 500), nn.ReLU(),
-            nn.Linear(500, 400)
+            nn.Linear(500, 400),
+            nn.Tanh()
         )
 
     def forward(self, sp):
