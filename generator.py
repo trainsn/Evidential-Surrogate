@@ -7,17 +7,12 @@ import torch.nn.functional as F
 import pdb
 
 class Generator(nn.Module):
-    def __init__(self, dsp=3, dspe=512, ch=1):
+    def __init__(self, dsp=3):
         """
         Generator Network Constructor
         :param dsp: dimensions of the simulation parameters
-        :param dspe: dimensions of the simulation parameters' encode
-        :param ch: channel multiplier
         """
         super(Generator, self).__init__()
-
-        self.dsp, self.dspe = dsp, dspe
-        self.ch = ch
 
         # simulation parameters subnet
         self.sparams_subnet = nn.Sequential(

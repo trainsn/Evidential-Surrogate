@@ -7,7 +7,7 @@ import argparse
 import math
 
 import numpy as np
-from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -99,7 +99,6 @@ def main(args):
 
     mse_criterion = nn.MSELoss()
     l1_criterion = nn.L1Loss()
-    train_losses, test_losses = [], []
 
     # optimizer
     g_optimizer = optim.Adam(g_model.parameters(), lr=args.lr,
@@ -113,68 +112,44 @@ def main(args):
             args.start_epoch = checkpoint["epoch"]
             g_model.load_state_dict(checkpoint["g_model_state_dict"])
             g_optimizer.load_state_dict(checkpoint["g_optimizer_state_dict"])
-            train_losses = checkpoint["train_losses"]
-            test_losses = checkpoint["test_losses"]
             print("=> loaded checkpoint {} (epoch {})"
                     .format(args.resume, checkpoint["epoch"]))
             
     params, C42a_data, sample_weight = ReadYeastDataset()
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
     train_split = torch.from_numpy(np.load('train_split.npy'))
-    train_params, train_C42a_data, train_sample_weight = params[train_split], C42a_data[train_split], sample_weight[train_split]
     test_params, test_C42a_data = params[~train_split], C42a_data[~train_split]
-    len_train = train_params.shape[0]
-    num_batches = (len_train - 1) // args.batch_size + 1
+    dmin, dmax = 0.0, 580.783
 
-    # main loop
-    for epoch in range(args.start_epoch, args.epochs):
-        # training...
-        g_model.train()
-        train_loss = 0.
+    # testing...
+    # g_model.eval()
+    with torch.no_grad():
+        fake_data = g_model(test_params)
+        mse = mse_criterion(test_C42a_data, fake_data).item()
+        psnr = 20. * np.log10(2.) - 10. * np.log10(mse)
+        print(f"PSNR: {psnr:.2f} dB")
 
-        for _ in range(num_batches): 
-            e_rndidx = torch.multinomial(train_sample_weight.flatten(), args.batch_size, replacement=True)
-            sub_params = train_params[e_rndidx]
-            sub_data = train_C42a_data[e_rndidx]
+        # Rescale data back to original range
+        fake_data = ((fake_data + 1) * (dmax - dmin) / 2) + dmin
+        test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin
+    pdb.set_trace()
 
-            g_optimizer.zero_grad()
-            fake_data = g_model(sub_params) #[:, 0]
+    example_data = fake_data[51].cpu().numpy()
+    
+    # Create angles for the points on the circle
+    angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
 
-            loss = mse_criterion(sub_data, fake_data)
+    # Plot the circle
+    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+    sc = ax.scatter(angles, np.ones_like(angles), c=example_data, cmap='viridis', s=10)
+    ax.set_yticklabels([])  # Hide radial ticks
 
-            loss.backward()
-            g_optimizer.step()
-            train_loss += loss.item()
+    # Add colorbar
+    cbar = plt.colorbar(sc, orientation='vertical')
+    cbar.set_label('C42a')
 
+    plt.show()
 
-        if (epoch + 1) % args.log_every == 0:
-            print("====> Epoch: {} Average loss: {:.6f}".format(
-                epoch + 1, train_loss / num_batches))
-
-        # testing...
-        # g_model.eval()
-        test_loss = 0.
-        with torch.no_grad():
-            fake_data = g_model(test_params)
-            test_loss = mse_criterion(test_C42a_data, fake_data).item()
-
-        test_losses.append(test_loss)
-        if (epoch + 1) % args.log_every == 0:
-            print("====> Epoch: {} Test set loss: {:.6f}".format(
-                epoch + 1, test_losses[-1]))
-
-        # saving...
-        if (epoch + 1) % args.check_every == 0:
-            print("=> saving checkpoint at epoch {}".format(epoch))
-            torch.save({"epoch": epoch + 1,
-                        "g_model_state_dict": g_model.state_dict(),
-                        "g_optimizer_state_dict": g_optimizer.state_dict(),
-                        "train_losses": train_losses,
-                        "test_losses": test_losses},
-                        os.path.join("models", "model_" + str(epoch + 1) + ".pth.tar"))
-
-            torch.save(g_model.state_dict(),
-                       os.path.join("models", "model_" + str(epoch + 1) + ".pth"))
 
 if __name__ == "__main__":
     main(parse_args())
