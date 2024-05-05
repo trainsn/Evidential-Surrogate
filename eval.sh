@@ -1,1 +1,1 @@
-python -u eval.py --resume models/model_200.pth.tar
+python -u eval.py --loss Evidential --resume models/model_Evidential_4200.pth.tar
