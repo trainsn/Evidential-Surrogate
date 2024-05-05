@@ -16,6 +16,7 @@ import torch.optim as optim
 
 from yeast import *
 from generator import Generator
+import loss_helper
 
 import pdb
 
@@ -24,38 +25,40 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Deep Learning Model")
 
     parser.add_argument("--no-cuda", action="store_true", default=False,
-                                            help="disables CUDA training")
+                        help="disables CUDA training")
     parser.add_argument("--data-parallel", action="store_true", default=False,
-                                            help="enable data parallelism")
+                        help="enable data parallelism")
     parser.add_argument("--seed", type=int, default=1,
-                                            help="random seed (default: 1)")
+                        help="random seed (default: 1)")
 
     parser.add_argument("--resume", type=str, default="",
-                                            help="path to the latest checkpoint (default: none)")
+                        help="path to the latest checkpoint (default: none)")
 
     parser.add_argument("--dsp", type=int, default=35,
-                                            help="dimensions of the simulation parameters (default: 35)")
+                        help="dimensions of the simulation parameters (default: 35)")
 
     parser.add_argument("--sn", action="store_true", default=False,
-                                            help="enable spectral normalization")
+                        help="enable spectral normalization")
 
     parser.add_argument("--lr", type=float, default=1e-3,
-                                            help="learning rate (default: 1e-3)")
+                        help="learning rate (default: 1e-3)")
+    parser.add_argument("--loss", type=str, default='MSE',
+                        help="loss function for training (default: MSE)")
     parser.add_argument("--beta1", type=float, default=0.9,
-                                            help="beta1 of Adam (default: 0.9)")
+                        help="beta1 of Adam (default: 0.9)")
     parser.add_argument("--beta2", type=float, default=0.999,
-                                            help="beta2 of Adam (default: 0.999)")
+                        help="beta2 of Adam (default: 0.999)")
     parser.add_argument("--batch-size", type=int, default=32,
-                                            help="batch size for training (default: 32)")
+                        help="batch size for training (default: 32)")
     parser.add_argument("--start-epoch", type=int, default=0,
-                                            help="start epoch number (default: 0)")
+                        help="start epoch number (default: 0)")
     parser.add_argument("--epochs", type=int, default=50000,
-                                            help="number of epochs to train")
+                        help="number of epochs to train")
 
     parser.add_argument("--log-every", type=int, default=40,
-                                            help="log training status every given number of batches")
+                        help="log training status every given number of batches")
     parser.add_argument("--check-every", type=int, default=200,
-                                            help="save checkpoint every given number of epochs")
+                        help="save checkpoint every given number of epochs")
 
     return parser.parse_args()
 
@@ -68,6 +71,8 @@ def main(args):
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
+    out_features = 4 if args.loss == 'Evidential' else 1
+
     # set random seed
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -77,11 +82,11 @@ def main(args):
         if isinstance(m, nn.Linear):
             nn.init.xavier_normal_(m.weight)
             if m.bias is not None:
-                nn.init.zeros_(m.bias)
+                        nn.init.zeros_(m.bias)
         elif isinstance(m, nn.Conv1d):
             nn.init.xavier_normal_(m.weight)
             if m.bias is not None:
-                nn.init.zeros_(m.bias)
+                        nn.init.zeros_(m.bias)
 
     def add_sn(m):
         for name, c in m.named_children():
@@ -91,14 +96,19 @@ def main(args):
         else:
             return m
 
-    g_model = Generator(args.dsp)
+    g_model = Generator(args.dsp, out_features)
     # if args.sn:
     #     g_model = add_sn(g_model)
 
     g_model.to(device)
-
-    mse_criterion = nn.MSELoss()
-    l1_criterion = nn.L1Loss()
+    if args.loss == 'Evidential':
+        print('Use Evidential Loss')
+    elif args.loss == 'MSE':
+        print('Use MSE Loss')
+        criterion = nn.MSELoss()
+    elif args.loss == 'L1':
+        print('Use L1 Loss')
+        criterion = nn.L1Loss()
     train_losses, test_losses = [], []
 
     # optimizer
@@ -116,7 +126,7 @@ def main(args):
             train_losses = checkpoint["train_losses"]
             test_losses = checkpoint["test_losses"]
             print("=> loaded checkpoint {} (epoch {})"
-                    .format(args.resume, checkpoint["epoch"]))
+                          .format(args.resume, checkpoint["epoch"]))
             
     params, C42a_data, sample_weight = ReadYeastDataset()
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
@@ -131,6 +141,7 @@ def main(args):
         # training...
         g_model.train()
         train_loss = 0.
+        train_mse = 0.
 
         for _ in range(num_batches): 
             e_rndidx = torch.multinomial(train_sample_weight.flatten(), args.batch_size, replacement=True)
@@ -138,30 +149,44 @@ def main(args):
             sub_data = train_C42a_data[e_rndidx]
 
             g_optimizer.zero_grad()
-            fake_data = g_model(sub_params) #[:, 0]
+            fake_data = g_model(sub_params)
 
-            loss = mse_criterion(sub_data, fake_data)
+            if args.loss == 'Evidential':
+                sub_data = sub_data.unsqueeze(-1)
+                loss = loss_helper.EvidentialRegression(sub_data, fake_data, coeff=1e-2)
+                gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=-1) 
+                mse = torch.mean((gamma - sub_data) ** 2)
+            else:
+                loss = criterion(sub_data, fake_data)
+                mse = torch.mean((fake_data - sub_data) ** 2)
 
             loss.backward()
             g_optimizer.step()
             train_loss += loss.item()
+            train_mse += mse.item()
 
 
         if (epoch + 1) % args.log_every == 0:
-            print("====> Epoch: {} Average loss: {:.6f}".format(
-                epoch + 1, train_loss / num_batches))
+            print("====> Epoch: {} Average loss: {:.6f}, Average MSE: {:.6f}".format(
+                        epoch + 1, train_loss / num_batches, train_mse / num_batches))
 
         # testing...
         # g_model.eval()
         test_loss = 0.
         with torch.no_grad():
             fake_data = g_model(test_params)
-            test_loss = mse_criterion(test_C42a_data, fake_data).item()
+            if args.loss == 'Evidential':
+                test_loss = loss_helper.EvidentialRegression(test_C42a_data.unsqueeze(-1), fake_data, coeff=1e-2)
+                gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=-1) 
+                test_mse = torch.mean((gamma - test_C42a_data.unsqueeze(-1)) ** 2)
+            else:
+                test_loss = criterion(test_C42a_data, fake_data).item()
+                test_mse = torch.mean((fake_data - test_C42a_data) ** 2)
 
         test_losses.append(test_loss)
         if (epoch + 1) % args.log_every == 0:
-            print("====> Epoch: {} Test set loss: {:.6f}".format(
-                epoch + 1, test_losses[-1]))
+            print("====> Epoch: {} Test set loss: {:.6f}, Test set MSE {:.6f}".format(
+                        epoch + 1, test_losses[-1], test_mse))
 
         # saving...
         if (epoch + 1) % args.check_every == 0:
@@ -171,10 +196,10 @@ def main(args):
                         "g_optimizer_state_dict": g_optimizer.state_dict(),
                         "train_losses": train_losses,
                         "test_losses": test_losses},
-                        os.path.join("models", "model_" + str(epoch + 1) + ".pth.tar"))
+                        os.path.join("models", "model_" + args.loss + "_" + str(epoch + 1) + ".pth.tar"))
 
-            torch.save(g_model.state_dict(),
-                       os.path.join("models", "model_" + str(epoch + 1) + ".pth"))
+            torch.save(g_model.state_dict(), 
+                       os.path.join("models", "model_" + args.loss + "_" +  str(epoch + 1) + ".pth"))
 
 if __name__ == "__main__":
     main(parse_args())
