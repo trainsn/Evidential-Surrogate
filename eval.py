@@ -154,8 +154,7 @@ def main(args):
 
     if args.loss == "Evidential":
         example_mu = mu[args.id].cpu().numpy()
-        example_mu_power = np.power(example_mu, 0.25)
-        max_mu = np.max(example_mu_power)
+        max_mu = np.max(example_mu)
         example_sigma = sigma[args.id].cpu().numpy()
         # example_sigma = np.minimum(example_sigma, np.percentile(example_sigma, 90))
         example_var = var[args.id].cpu().numpy()
@@ -167,16 +166,16 @@ def main(args):
 
         # Create angles for the points on the circle
         angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
-        n_stds = 2
+        n_stds = 100
         
         # Create subplots for two circles
         fig, axs = plt.subplots(1, 2, subplot_kw={'projection': 'polar'}, figsize=(12, 5)) 
 
         # Plot the circle
-        sc1 = axs[0].scatter(angles, example_mu_power, s=1., c='#463c3c', zorder=0, label="Train")
+        line1, = axs[0].plot(angles, example_mu, color='#463c3c', linewidth=1, zorder=0, label="Train")
         for k in np.linspace(0, n_stds, 2):
             axs[0].fill_between(
-                angles, (example_mu_power - k * example_sigma), (example_mu_power + k * example_sigma),
+                angles, (example_mu - k * example_sigma), (example_mu + k * example_sigma),
                 alpha=0.3,
                 edgecolor=None,
                 facecolor='#00aeef',
@@ -188,10 +187,10 @@ def main(args):
         axs[0].set_title("Aleatoric Uncertainty")
 
         # Plot the circle
-        sc2 = axs[1].scatter(angles, example_mu_power, s=1., c='#463c3c', zorder=0, label="Train")
+        line2, = axs[1].plot(angles, example_mu, color='#463c3c', linewidth=1, zorder=0, label="Train")
         for k in np.linspace(0, n_stds, 2):
             axs[1].fill_between(
-                angles, (example_mu_power - k * example_var), (example_mu_power + k * example_var),
+                angles, (example_mu - k * example_var), (example_mu + k * example_var),
                 alpha=0.3,
                 edgecolor=None,
                 facecolor='#00aeef',
