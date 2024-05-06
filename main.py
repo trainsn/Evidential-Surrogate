@@ -36,6 +36,10 @@ def parse_args():
 
     parser.add_argument("--dsp", type=int, default=35,
                         help="dimensions of the simulation parameters (default: 35)")
+    parser.add_argument("--dspe", type=int, default=512,
+                        help="dimensions of the simulation parameters' encode (default: 512)")
+    parser.add_argument("--ch", type=int, default=4,
+                        help="channel multiplier (default: 4)")
 
     parser.add_argument("--sn", action="store_true", default=False,
                         help="enable spectral normalization")
@@ -82,11 +86,11 @@ def main(args):
         if isinstance(m, nn.Linear):
             nn.init.xavier_normal_(m.weight)
             if m.bias is not None:
-                        nn.init.zeros_(m.bias)
+                nn.init.zeros_(m.bias)
         elif isinstance(m, nn.Conv1d):
             nn.init.xavier_normal_(m.weight)
             if m.bias is not None:
-                        nn.init.zeros_(m.bias)
+                nn.init.zeros_(m.bias)
 
     def add_sn(m):
         for name, c in m.named_children():
@@ -96,7 +100,7 @@ def main(args):
         else:
             return m
 
-    g_model = Generator(args.dsp, out_features)
+    g_model = Generator(args.dsp, args.dspe, args.ch, out_features)
     # if args.sn:
     #     g_model = add_sn(g_model)
 
@@ -152,11 +156,12 @@ def main(args):
             fake_data = g_model(sub_params)
 
             if args.loss == 'Evidential':
-                sub_data = sub_data.unsqueeze(-1)
+                sub_data = sub_data.unsqueeze(1)
                 loss = loss_helper.EvidentialRegression(sub_data, fake_data, coeff=1e-2)
-                gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=-1) 
+                gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=1) 
                 mse = torch.mean((gamma - sub_data) ** 2)
             else:
+                fake_data = fake_data[:, 0]
                 loss = criterion(sub_data, fake_data)
                 mse = torch.mean((fake_data - sub_data) ** 2)
 
@@ -176,10 +181,11 @@ def main(args):
         with torch.no_grad():
             fake_data = g_model(test_params)
             if args.loss == 'Evidential':
-                test_loss = loss_helper.EvidentialRegression(test_C42a_data.unsqueeze(-1), fake_data, coeff=1e-2)
-                gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=-1) 
-                test_mse = torch.mean((gamma - test_C42a_data.unsqueeze(-1)) ** 2)
+                test_loss = loss_helper.EvidentialRegression(test_C42a_data.unsqueeze(1), fake_data, coeff=1e-2)
+                gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=1) 
+                test_mse = torch.mean((gamma - test_C42a_data.unsqueeze(1)) ** 2)
             else:
+                fake_data = fake_data[:, 0]
                 test_loss = criterion(test_C42a_data, fake_data).item()
                 test_mse = torch.mean((fake_data - test_C42a_data) ** 2)
 

@@ -6,23 +6,39 @@ import torch.nn.functional as F
 
 import pdb
 
+from resblock import BasicBlockGenerator
+
 class Generator(nn.Module):
-    def __init__(self, dsp, out_features):
+    def __init__(self, dsp=3, dspe=512, ch=1, out_features=4):
         """
         Generator Network Constructor
         :param dsp: dimensions of the simulation parameters
+        :param dspe: dimensions of the simulation parameters' encode
+        :param ch: channel multiplier
         """
         super(Generator, self).__init__()
 
+        self.dsp, self.dspe = dsp, dspe
+        self.ch = ch
         self.out_features = out_features
 
         # simulation parameters subnet
         self.sparams_subnet = nn.Sequential(
-            nn.Linear(dsp, 1024), nn.ReLU(),
-            nn.Linear(1024, 800), nn.ReLU(),
-            nn.Linear(800, 500), nn.ReLU(),
-            nn.Linear(500, 400 * out_features)
+            nn.Linear(dsp, dspe), nn.ReLU(),
+            nn.Linear(dspe, dspe), nn.ReLU(),
+            nn.Linear(dspe, dspe), nn.ReLU(),
+            nn.Linear(dspe, ch * 4 * 100)
         )
+
+        # image generation subnet
+        self.data_subnet = nn.Sequential(
+            BasicBlockGenerator(ch * 4, ch * 2, kernel_size=3, stride=1, padding=1),
+            BasicBlockGenerator(ch * 2, ch, kernel_size=3, stride=1, padding=1),
+            nn.InstanceNorm1d(ch),
+            nn.ReLU(),
+            nn.Conv1d(ch, out_features, kernel_size=3, stride=1, padding=1),
+        )
+
         self.tanh = nn.Tanh()
 
     def evidence(self, x):
@@ -30,20 +46,23 @@ class Generator(nn.Module):
         return F.softplus(x)
     
     def DenseNormalGamma(self, x):
-        x = x.reshape(-1, 400, self.out_features)
-        mu, logv, logalpha, logbeta = x.chunk(4, dim=-1)
-        mu = F.tanh(mu)
+        mu, logv, logalpha, logbeta = x.chunk(4, dim=1)
+        mu = torch.tanh(mu)
         v = self.evidence(logv)
         alpha = self.evidence(logalpha) + 1
         beta = self.evidence(logbeta)
         # Concatenating the tensors along the last dimension
-        return torch.cat([mu, v, alpha, beta], dim=-1)
+        return torch.cat([mu, v, alpha, beta], dim=1)
 
     def forward(self, sp):
-        x = self.sparams_subnet(sp)
+        sp = self.sparams_subnet(sp)
+
+        x = sp.view(sp.size(0), self.ch * 4, 100)
+        x = self.data_subnet(x)
 
         if self.out_features == 4:
             x = self.DenseNormalGamma(x)
         else:
             x = self.tanh(x)
+
         return x

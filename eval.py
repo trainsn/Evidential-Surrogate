@@ -35,6 +35,10 @@ def parse_args():
 
     parser.add_argument("--dsp", type=int, default=35,
                         help="dimensions of the simulation parameters (default: 35)")
+    parser.add_argument("--dspe", type=int, default=512,
+                        help="dimensions of the simulation parameters' encode (default: 512)")
+    parser.add_argument("--ch", type=int, default=4,
+                        help="channel multiplier (default: 4)")
 
     parser.add_argument("--sn", action="store_true", default=False,
                         help="enable spectral normalization")
@@ -58,6 +62,9 @@ def parse_args():
                         help="log training status every given number of batches")
     parser.add_argument("--check-every", type=int, default=200,
                         help="save checkpoint every given number of epochs")
+    
+    parser.add_argument("--id", type=int, default=51,
+                        help="instance id in the testing set")
 
     return parser.parse_args()
 
@@ -95,7 +102,7 @@ def main(args):
         else:
             return m
 
-    g_model = Generator(args.dsp, out_features)
+    g_model = Generator(args.dsp, args.dspe, args.ch, out_features)
     # if args.sn:
     #     g_model = add_sn(g_model)
 
@@ -129,13 +136,14 @@ def main(args):
     with torch.no_grad():
         fake_data = g_model(test_params)
         if args.loss == 'Evidential':
-            gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=-1) 
-            mu = gamma[:, :, 0]
+            gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
+            mu = gamma[:, 0]
             mse = mse_criterion(test_C42a_data, mu).item()
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
-            sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, :, 0]
-            var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, :, 0]
+            sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]
+            var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
         else:
+            fake_data = fake_data[:, 0]
             mse = mse_criterion(test_C42a_data, fake_data).item()
             fake_data = ((fake_data + 1) * (dmax - dmin) / 2) + dmin
         psnr = 20. * np.log10(2.) - 10. * np.log10(mse)
@@ -145,35 +153,54 @@ def main(args):
         test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin
 
     if args.loss == "Evidential":
-        id = 51
-        example_mu = mu[id].cpu().numpy()
-        example_sigma = sigma[id].cpu().numpy()
-        example_sigma = np.minimum(example_sigma, np.percentile(example_sigma, 90))
-        example_var = var[id].cpu().numpy()
-        example_var = np.minimum(example_var, np.percentile(example_var, 90))
-        pdb.set_trace()
-        
+        example_mu = mu[args.id].cpu().numpy()
+        example_mu_power = np.power(example_mu, 0.25)
+        max_mu = np.max(example_mu_power)
+        example_sigma = sigma[args.id].cpu().numpy()
+        # example_sigma = np.minimum(example_sigma, np.percentile(example_sigma, 90))
+        example_var = var[args.id].cpu().numpy()
+        # example_var = np.minimum(example_var, np.percentile(example_var, 90))
+
+        combined_simga_var = np.concatenate([example_sigma, example_var])
+        max_simga_var = np.max(combined_simga_var)
+        print("max combined_sigma_var: ", max_simga_var)
+
         # Create angles for the points on the circle
         angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
+        n_stds = 2
+        
+        # Create subplots for two circles
+        fig, axs = plt.subplots(1, 2, subplot_kw={'projection': 'polar'}, figsize=(12, 5)) 
 
         # Plot the circle
-        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
-        sc = ax.scatter(angles, np.ones_like(angles), c=example_mu, cmap='viridis', s=10)
-        n_stds = 4
+        sc1 = axs[0].scatter(angles, example_mu_power, s=1., c='#463c3c', zorder=0, label="Train")
         for k in np.linspace(0, n_stds, 2):
-            ax.fill_between(
-                angles, (1 - k * example_var), (1 + k * example_var),
+            axs[0].fill_between(
+                angles, (example_mu_power - k * example_sigma), (example_mu_power + k * example_sigma),
                 alpha=0.3,
                 edgecolor=None,
                 facecolor='#00aeef',
                 linewidth=0,
                 zorder=1,
                 label="Unc." if k == 0 else None)
-        ax.set_yticklabels([])  # Hide radial ticks
+        # axs[0].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
+        # axs[0].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
+        axs[0].set_title("Aleatoric Uncertainty")
 
-        # Add colorbar
-        cbar = plt.colorbar(sc, orientation='vertical')
-        cbar.set_label('C42a')
+        # Plot the circle
+        sc2 = axs[1].scatter(angles, example_mu_power, s=1., c='#463c3c', zorder=0, label="Train")
+        for k in np.linspace(0, n_stds, 2):
+            axs[1].fill_between(
+                angles, (example_mu_power - k * example_var), (example_mu_power + k * example_var),
+                alpha=0.3,
+                edgecolor=None,
+                facecolor='#00aeef',
+                linewidth=0,
+                zorder=1,
+                label="Unc." if k == 0 else None)
+        # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
+        # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
+        axs[1].set_title("Epistemic Uncertainty")
 
         plt.show()
     else:
