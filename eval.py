@@ -47,6 +47,8 @@ def parse_args():
                         help="learning rate (default: 1e-3)")
     parser.add_argument("--loss", type=str, default='MSE',
                         help="loss function for training (default: MSE)")
+    parser.add_argument("--dropout", action="store_true", default=False,
+                        help="using dropout layer after convolution")
     parser.add_argument("--beta1", type=float, default=0.9,
                         help="beta1 of Adam (default: 0.9)")
     parser.add_argument("--beta2", type=float, default=0.999,
@@ -153,6 +155,7 @@ def main(args):
         test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin
 
     if args.loss == "Evidential":
+        example_test = test_C42a_data[args.id].cpu().numpy()
         example_mu = mu[args.id].cpu().numpy()
         max_mu = np.max(example_mu)
         example_sigma = sigma[args.id].cpu().numpy()
@@ -160,19 +163,18 @@ def main(args):
         example_var = var[args.id].cpu().numpy()
         # example_var = np.minimum(example_var, np.percentile(example_var, 90))
 
-        combined_simga_var = np.concatenate([example_sigma, example_var])
-        max_simga_var = np.max(combined_simga_var)
-        print("max combined_sigma_var: ", max_simga_var)
+        print("max sigma: ", np.max(example_sigma), "max var: ",  np.max(example_var))
 
         # Create angles for the points on the circle
         angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
-        n_stds = 100
+        n_stds = max(max_mu, 300)
         
         # Create subplots for two circles
         fig, axs = plt.subplots(1, 2, subplot_kw={'projection': 'polar'}, figsize=(12, 5)) 
 
         # Plot the circle
-        line1, = axs[0].plot(angles, example_mu, color='#463c3c', linewidth=1, zorder=0, label="Train")
+        axs[0].plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
+        axs[0].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
         for k in np.linspace(0, n_stds, 2):
             axs[0].fill_between(
                 angles, (example_mu - k * example_sigma), (example_mu + k * example_sigma),
@@ -182,12 +184,14 @@ def main(args):
                 linewidth=0,
                 zorder=1,
                 label="Unc." if k == 0 else None)
+        axs[0].set_ylim(0, None)  
         # axs[0].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
         # axs[0].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
         axs[0].set_title("Aleatoric Uncertainty")
 
         # Plot the circle
-        line2, = axs[1].plot(angles, example_mu, color='#463c3c', linewidth=1, zorder=0, label="Train")
+        axs[1].plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
+        axs[1].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
         for k in np.linspace(0, n_stds, 2):
             axs[1].fill_between(
                 angles, (example_mu - k * example_var), (example_mu + k * example_var),
@@ -197,6 +201,7 @@ def main(args):
                 linewidth=0,
                 zorder=1,
                 label="Unc." if k == 0 else None)
+        axs[1].set_ylim(0, None)  
         # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
         # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
         axs[1].set_title("Epistemic Uncertainty")

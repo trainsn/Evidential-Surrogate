@@ -48,6 +48,8 @@ def parse_args():
                         help="learning rate (default: 1e-3)")
     parser.add_argument("--loss", type=str, default='MSE',
                         help="loss function for training (default: MSE)")
+    parser.add_argument("--dropout", action="store_true", default=False,
+                        help="using dropout layer after convolution")
     parser.add_argument("--beta1", type=float, default=0.9,
                         help="beta1 of Adam (default: 0.9)")
     parser.add_argument("--beta2", type=float, default=0.999,
@@ -77,6 +79,10 @@ def main(args):
 
     out_features = 4 if args.loss == 'Evidential' else 1
 
+    network_str = "model_" + args.loss  
+    if args.dropout: 
+        network_str += "_dp" 
+
     # set random seed
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -84,11 +90,11 @@ def main(args):
     # model
     def weights_init(m):
         if isinstance(m, nn.Linear):
-            nn.init.xavier_normal_(m.weight)
+            nn.init.orthogonal_(m.weight)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
         elif isinstance(m, nn.Conv1d):
-            nn.init.xavier_normal_(m.weight)
+            nn.init.orthogonal_(m.weight)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
 
@@ -100,7 +106,9 @@ def main(args):
         else:
             return m
 
-    g_model = Generator(args.dsp, args.dspe, args.ch, out_features)
+    g_model = Generator(args.dsp, args.dspe, args.ch, out_features, dropout=args.dropout)
+    print(g_model)
+    # g_model.apply(weights_init)
     # if args.sn:
     #     g_model = add_sn(g_model)
 
@@ -202,10 +210,10 @@ def main(args):
                         "g_optimizer_state_dict": g_optimizer.state_dict(),
                         "train_losses": train_losses,
                         "test_losses": test_losses},
-                        os.path.join("models", "model_" + args.loss + "_" + str(epoch + 1) + ".pth.tar"))
+                        os.path.join("models", network_str + "_" + str(epoch + 1) + ".pth.tar"))
 
             torch.save(g_model.state_dict(), 
-                       os.path.join("models", "model_" + args.loss + "_" +  str(epoch + 1) + ".pth"))
+                       os.path.join("models", network_str + "_" + str(epoch + 1) + ".pth"))
 
 if __name__ == "__main__":
     main(parse_args())

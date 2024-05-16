@@ -9,7 +9,7 @@ import pdb
 from resblock import BasicBlockGenerator
 
 class Generator(nn.Module):
-    def __init__(self, dsp=3, dspe=512, ch=1, out_features=4):
+    def __init__(self, dsp=3, dspe=512, ch=1, out_features=4, dropout=False):
         """
         Generator Network Constructor
         :param dsp: dimensions of the simulation parameters
@@ -30,14 +30,18 @@ class Generator(nn.Module):
             nn.Linear(dspe, ch * 4 * 100)
         )
 
-        # image generation subnet
-        self.data_subnet = nn.Sequential(
+        # Image generation subnet
+        data_layers = [
             BasicBlockGenerator(ch * 4, ch * 2, kernel_size=3, stride=1, padding=1),
             BasicBlockGenerator(ch * 2, ch, kernel_size=3, stride=1, padding=1),
             nn.InstanceNorm1d(ch),
             nn.ReLU(),
-            nn.Conv1d(ch, out_features, kernel_size=3, stride=1, padding=1),
-        )
+            nn.Conv1d(ch, out_features, kernel_size=3, stride=1, padding=1, padding_mode='circular')
+        ]
+        if dropout:
+            data_layers.append(nn.Dropout1d(p=0.02))
+        
+        self.data_subnet = nn.Sequential(*data_layers)
 
         self.tanh = nn.Tanh()
 

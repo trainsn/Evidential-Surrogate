@@ -40,6 +40,8 @@ def ReadYeastDataset():
 
     # Concatenate all data from each file type into single arrays
     params = np.concatenate(params, axis=0) if params else np.array([], dtype=float)
+    # params_slice = params[:, np.r_[0:1, 4:35]]
+    params_slice = params[:, np.r_[0:25, 32:35]]
     C42a_dat = np.concatenate(C42a_dat, axis=0) if C42a_dat else np.array([], dtype=float)
     PF_C42a = np.concatenate(PF_C42a, axis=0) if PF_C42a else np.array([], dtype=float)
 
@@ -48,4 +50,4 @@ def ReadYeastDataset():
 
     samp_weight1 = np.where(PF_C42a >= 0.35, 3, 1)
 
-    return params, C42a_dat_scaled, samp_weight1
+    return params_slice, C42a_dat_scaled, samp_weight1

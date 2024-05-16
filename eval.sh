@@ -1,1 +1,1 @@
-python -u eval.py --loss Evidential --resume models/model_Evidential_600.pth.tar --id 51
+python -u eval.py --dsp 28 --loss Evidential --resume models/model_Evidential_240.pth.tar --id 51

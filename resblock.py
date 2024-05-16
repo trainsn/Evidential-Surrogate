@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+import pdb
+
 class BasicBlockGenerator(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1,
                              padding=1, activation=F.relu, upsample=True):
@@ -28,7 +30,7 @@ class BasicBlockGenerator(nn.Module):
         residual = x
         if self.upsample:
             residual = F.interpolate(residual, scale_factor=2)
-        if self.conv_res is not None:
+        if self.conv_res:
             residual = self.conv_res(residual)
 
         out = self.in0(x)
