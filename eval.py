@@ -51,12 +51,8 @@ def parse_args():
                         help="beta1 of Adam (default: 0.9)")
     parser.add_argument("--beta2", type=float, default=0.999,
                         help="beta2 of Adam (default: 0.999)")
-    parser.add_argument("--batch-size", type=int, default=32,
-                        help="batch size for training (default: 32)")
     parser.add_argument("--start-epoch", type=int, default=0,
                         help="start epoch number (default: 0)")
-    parser.add_argument("--epochs", type=int, default=50000,
-                        help="number of epochs to train")
     parser.add_argument("--n-samples", type=int, default=10,
                         help="number of samples run for the dropout or ensemble model")
 
@@ -141,10 +137,11 @@ def main(args):
                 fake_data.append(g_model(test_params))
             fake_data = torch.stack(fake_data, dim=0)
             mu = torch.mean(fake_data, dim=0)[:, 0]
+            mse = mse_criterion(test_C42a_data, mu).item()
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
             var = torch.std(fake_data, dim=0)[:, 0]
             var = var * (dmax - dmin) / 2
-        if args.loss == 'Evidential':
+        elif args.loss == 'Evidential':
             fake_data = g_model(test_params)
             gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
             mu = gamma[:, 0]
@@ -177,7 +174,6 @@ def main(args):
         example_var = var[args.id].cpu().numpy()
         # example_var = np.minimum(example_var, np.percentile(example_var, 90))
         print("max var: ",  np.max(example_var))
-        pdb.set_trace()
 
         n_stds = 1
 
@@ -202,7 +198,7 @@ def main(args):
 
         plt.show()
 
-    if args.loss == "Evidential":
+    elif args.loss == "Evidential":
         example_test = test_C42a_data[args.id].cpu().numpy()
         example_mu = mu[args.id].cpu().numpy()
         example_sigma = sigma[args.id].cpu().numpy()

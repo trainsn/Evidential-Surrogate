@@ -79,7 +79,7 @@ def main(args):
 
     out_features = 4 if args.loss == 'Evidential' else 1
 
-    network_str = "model_" + args.loss  
+    network_str = "model_" + args.loss + "_seed" + str(args.seed) 
     if args.dropout: 
         network_str += "_dp" 
 
