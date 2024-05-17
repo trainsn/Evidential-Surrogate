@@ -27,8 +27,6 @@ def parse_args():
                         help="disables CUDA training")
     parser.add_argument("--data-parallel", action="store_true", default=False,
                         help="enable data parallelism")
-    parser.add_argument("--seed", type=int, default=1,
-                        help="random seed (default: 1)")
 
     parser.add_argument("--resume", type=str, default="",
                         help="path to the latest checkpoint (default: none)")
@@ -59,6 +57,8 @@ def parse_args():
                         help="start epoch number (default: 0)")
     parser.add_argument("--epochs", type=int, default=50000,
                         help="number of epochs to train")
+    parser.add_argument("--n-samples", type=int, default=10,
+                        help="number of samples run for the dropout or ensemble model")
 
     parser.add_argument("--log-every", type=int, default=40,
                         help="log training status every given number of batches")
@@ -81,10 +81,6 @@ def main(args):
 
     out_features = 4 if args.loss == 'Evidential' else 1
 
-    # set random seed
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-
     # model
     def weights_init(m):
         if isinstance(m, nn.Linear):
@@ -104,7 +100,7 @@ def main(args):
         else:
             return m
 
-    g_model = Generator(args.dsp, args.dspe, args.ch, out_features)
+    g_model = Generator(args.dsp, args.dspe, args.ch, out_features, dropout=args.dropout)
     # if args.sn:
     #     g_model = add_sn(g_model)
 
@@ -134,17 +130,32 @@ def main(args):
     dmin, dmax = 0.0, 580.783
 
     # testing...
-    # g_model.eval()
+    g_model.train()
     with torch.no_grad():
-        fake_data = g_model(test_params)
+        if args.dropout:
+            assert args.loss == 'MSE'
+            fake_data = []
+            table_size = 1009  
+            for i in range(args.n_samples):
+                torch.cuda.manual_seed(np.mod(np.power(7, i), table_size))
+                fake_data.append(g_model(test_params))
+            fake_data = torch.stack(fake_data, dim=0)
+            mu = torch.mean(fake_data, dim=0)[:, 0]
+            mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
+            var = torch.std(fake_data, dim=0)[:, 0]
+            var = var * (dmax - dmin) / 2
         if args.loss == 'Evidential':
+            fake_data = g_model(test_params)
             gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
             mu = gamma[:, 0]
             mse = mse_criterion(test_C42a_data, mu).item()
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
             sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]
+            sigma = sigma * (dmax - dmin) / 2
             var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
+            var = var * (dmax - dmin) / 2
         else:
+            fake_data = g_model(test_params)
             fake_data = fake_data[:, 0]
             mse = mse_criterion(test_C42a_data, fake_data).item()
             fake_data = ((fake_data + 1) * (dmax - dmin) / 2) + dmin
@@ -154,20 +165,53 @@ def main(args):
         # Rescale data back to original range
         test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin
 
+
+    # Create angles for the points on the circle
+    angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
+
+    if args.dropout:
+        assert args.loss == 'MSE'
+
+        example_test = test_C42a_data[args.id].cpu().numpy()
+        example_mu = mu[args.id].cpu().numpy()
+        example_var = var[args.id].cpu().numpy()
+        # example_var = np.minimum(example_var, np.percentile(example_var, 90))
+        print("max var: ",  np.max(example_var))
+        pdb.set_trace()
+
+        n_stds = 1
+
+        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
+
+        # Plot the circle
+        ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
+        ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
+        for k in np.linspace(0, n_stds, 2):
+            ax.fill_between(
+                angles, (example_mu - k * example_var), (example_mu + k * example_var),
+                alpha=0.3,
+                edgecolor=None,
+                facecolor='#00aeef',
+                linewidth=0,
+                zorder=1,
+                label="Unc." if k == 0 else None)
+        ax.set_ylim(0, None)  
+        # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
+        # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
+        ax.set_title("Epistemic Uncertainty")
+
+        plt.show()
+
     if args.loss == "Evidential":
         example_test = test_C42a_data[args.id].cpu().numpy()
         example_mu = mu[args.id].cpu().numpy()
-        max_mu = np.max(example_mu)
         example_sigma = sigma[args.id].cpu().numpy()
         # example_sigma = np.minimum(example_sigma, np.percentile(example_sigma, 90))
         example_var = var[args.id].cpu().numpy()
         # example_var = np.minimum(example_var, np.percentile(example_var, 90))
-
         print("max sigma: ", np.max(example_sigma), "max var: ",  np.max(example_var))
 
-        # Create angles for the points on the circle
-        angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
-        n_stds = max(max_mu, 300)
+        n_stds = 1
         
         # Create subplots for two circles
         fig, axs = plt.subplots(1, 2, subplot_kw={'projection': 'polar'}, figsize=(12, 5)) 
@@ -205,22 +249,6 @@ def main(args):
         # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
         # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
         axs[1].set_title("Epistemic Uncertainty")
-
-        plt.show()
-    else:
-        example_data = fake_data[51].cpu().numpy()
-        
-        # Create angles for the points on the circle
-        angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
-
-        # Plot the circle
-        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
-        sc = ax.scatter(angles, np.ones_like(angles), c=example_data, cmap='viridis', s=10)
-        ax.set_yticklabels([])  # Hide radial ticks
-
-        # Add colorbar
-        cbar = plt.colorbar(sc, orientation='vertical')
-        cbar.set_label('C42a')
 
         plt.show()
 

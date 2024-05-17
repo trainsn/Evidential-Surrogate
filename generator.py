@@ -39,7 +39,7 @@ class Generator(nn.Module):
             nn.Conv1d(ch, out_features, kernel_size=3, stride=1, padding=1, padding_mode='circular')
         ]
         if dropout:
-            data_layers.append(nn.Dropout1d(p=0.02))
+            data_layers.append(nn.Dropout1d(p=0.1))
         
         self.data_subnet = nn.Sequential(*data_layers)
 
