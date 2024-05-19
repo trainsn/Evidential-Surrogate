@@ -16,6 +16,7 @@ import torch.optim as optim
 
 from yeast import *
 from generator import Generator
+import loss_helper
 
 import pdb
 
@@ -125,9 +126,11 @@ def main(args):
             fake_data.append(model(test_params))
         fake_data = torch.stack(fake_data, dim=0)
         mu = torch.mean(fake_data, dim=0)[:, 0]
-        mse = mse_criterion(test_C42a_data, mu).item()
-        mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
         var = torch.std(fake_data, dim=0)[:, 0]
+        mse = mse_criterion(test_C42a_data, mu).item()
+        nll, trimmed_nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var)
+        print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
+        mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
         var = var * (dmax - dmin) / 2
         
         psnr = 20. * np.log10(2.) - 10. * np.log10(mse)

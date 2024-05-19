@@ -16,6 +16,7 @@ import torch.optim as optim
 
 from yeast import *
 from generator import Generator
+import loss_helper
 
 import pdb
 
@@ -137,13 +138,17 @@ def main(args):
                 fake_data.append(g_model(test_params))
             fake_data = torch.stack(fake_data, dim=0)
             mu = torch.mean(fake_data, dim=0)[:, 0]
-            mse = mse_criterion(test_C42a_data, mu).item()
-            mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
             var = torch.std(fake_data, dim=0)[:, 0]
+            mse = mse_criterion(test_C42a_data, mu).item()
+            nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var)
+            print(f"NLL: {nll:.2f}")
+            mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
             var = var * (dmax - dmin) / 2
         elif args.loss == 'Evidential':
             fake_data = g_model(test_params)
             gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
+            nll, trimmed_nll = loss_helper.NIG_NLL(test_C42a_data.unsqueeze(1), gamma, v, alpha, beta)
+            print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
             mu = gamma[:, 0]
             mse = mse_criterion(test_C42a_data, mu).item()
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
