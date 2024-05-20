@@ -17,6 +17,7 @@ import torch.optim as optim
 from yeast import *
 from generator import Generator
 import loss_helper
+import utils
 
 import pdb
 
@@ -132,16 +133,7 @@ def main(args):
         nll, trimmed_nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var)
         print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
 
-        percentiles = np.linspace(0, 1, 100, endpoint=False)
-        cutoff_inds = (percentiles * var.numel()).astype(int)
-        _, sorted_varidx = torch.sort(var.flatten(), descending=True)
-
-        cutoff_psnrs = []
-        for cutoff in cutoff_inds:
-            cutoff_mse = all_mse.flatten()[sorted_varidx[cutoff:]].mean().item()
-            cutoff_psnrs.append(20. * np.log10(2.) - 10. * np.log10(cutoff_mse))
-        np.save(os.path.join("figs", "ensemble_cutoff_psnrs"), np.array(cutoff_psnrs))
-        pdb.set_trace()
+        utils.gen_cutoff(all_mse, var, "ensemble")
 
         mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
         var = var * (dmax - dmin) / 2
