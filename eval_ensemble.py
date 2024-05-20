@@ -109,7 +109,7 @@ def main(args):
             print(f"=> no checkpoint found at {model_path}")
         models.append(model)
 
-    mse_criterion = nn.MSELoss()
+    mse_criterion = nn.MSELoss(reduction='none')
             
     params, C42a_data, sample_weight = ReadYeastDataset()
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
@@ -127,9 +127,22 @@ def main(args):
         fake_data = torch.stack(fake_data, dim=0)
         mu = torch.mean(fake_data, dim=0)[:, 0]
         var = torch.std(fake_data, dim=0)[:, 0]
-        mse = mse_criterion(test_C42a_data, mu).item()
+        all_mse = mse_criterion(test_C42a_data, mu)
+        mse = all_mse.mean().item()
         nll, trimmed_nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var)
         print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
+
+        percentiles = np.linspace(0, 1, 100, endpoint=False)
+        cutoff_inds = (percentiles * var.numel()).astype(int)
+        _, sorted_varidx = torch.sort(var.flatten(), descending=True)
+
+        cutoff_psnrs = []
+        for cutoff in cutoff_inds:
+            cutoff_mse = all_mse.flatten()[sorted_varidx[cutoff:]].mean().item()
+            cutoff_psnrs.append(20. * np.log10(2.) - 10. * np.log10(cutoff_mse))
+        np.save(os.path.join("figs", "ensemble_cutoff_psnrs"), np.array(cutoff_psnrs))
+        pdb.set_trace()
+
         mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
         var = var * (dmax - dmin) / 2
         
@@ -140,37 +153,38 @@ def main(args):
         test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin
 
 
-    # Create angles for the points on the circle
-    angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
+    if args.id >= 0:
+        # Create angles for the points on the circle
+        angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
 
-    example_test = test_C42a_data[args.id].cpu().numpy()
-    example_mu = mu[args.id].cpu().numpy()
-    example_var = var[args.id].cpu().numpy()
-    # example_var = np.minimum(example_var, np.percentile(example_var, 90))
-    print("max var: ",  np.max(example_var))
+        example_test = test_C42a_data[args.id].cpu().numpy()
+        example_mu = mu[args.id].cpu().numpy()
+        example_var = var[args.id].cpu().numpy()
+        # example_var = np.minimum(example_var, np.percentile(example_var, 90))
+        print("max var: ",  np.max(example_var))
 
-    n_stds = 1
+        n_stds = 1
 
-    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
+        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
 
-    # Plot the circle
-    ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
-    ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
-    for k in np.linspace(0, n_stds, 2):
-        ax.fill_between(
-            angles, (example_mu - k * example_var), (example_mu + k * example_var),
-            alpha=0.3,
-            edgecolor=None,
-            facecolor='#00aeef',
-            linewidth=0,
-            zorder=1,
-            label="Unc." if k == 0 else None)
-    ax.set_ylim(0, None)  
-    # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
-    # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-    ax.set_title("Epistemic Uncertainty")
+        # Plot the circle
+        ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
+        ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
+        for k in np.linspace(0, n_stds, 2):
+            ax.fill_between(
+                angles, (example_mu - k * example_var), (example_mu + k * example_var),
+                alpha=0.3,
+                edgecolor=None,
+                facecolor='#00aeef',
+                linewidth=0,
+                zorder=1,
+                label="Unc." if k == 0 else None)
+        ax.set_ylim(0, None)  
+        # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
+        # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
+        ax.set_title("Epistemic Uncertainty")
 
-    plt.show()
+        plt.show()
 
 
 if __name__ == "__main__":

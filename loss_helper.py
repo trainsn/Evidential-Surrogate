@@ -8,7 +8,6 @@ def Gaussian_NLL(y, mu, sigma, reduce=True):
     if reduce:
         # Mean reduction over all dimensions except the batch dimension
         loss = -torch.mean(logprob, dim=tuple(range(1, y.dim())))
-        pdb.set_trace()
         sorted_loss, _ = torch.sort(loss)
         trimmed_loss = sorted_loss[3:-3]
         return torch.mean(loss), torch.mean(trimmed_loss)
@@ -27,7 +26,6 @@ def NIG_NLL(y, gamma, v, alpha, beta, reduce=True):
     if reduce:
         # Mean reduction over all dimensions except the batch dimension
         nll = torch.mean(nll, dim=tuple(range(1, y.dim())))
-        pdb.set_trace()
         sorted_nll, _ = torch.sort(nll)
         trimmed_nll = sorted_nll[3:-3]
     
