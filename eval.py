@@ -146,6 +146,8 @@ def main(args):
             print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
 
             utils.gen_cutoff(all_mse, var, "dropout")
+            calibration_err = utils.gen_calibration(mu, var, test_C42a_data)
+            print(f"Calibration Error: {calibration_err:.4f}")
 
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
             var = var * (dmax - dmin) / 2
@@ -161,6 +163,8 @@ def main(args):
             var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
 
             utils.gen_cutoff(all_mse, var, "evidential")
+            calibration_err = utils.gen_calibration(mu, var, test_C42a_data)
+            print(f"Calibration Error: {calibration_err:.4f}")
 
             sigma = sigma * (dmax - dmin) / 2
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin

@@ -134,6 +134,8 @@ def main(args):
         print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
 
         utils.gen_cutoff(all_mse, var, "ensemble")
+        calibration_err = utils.gen_calibration(mu, var, test_C42a_data)
+        print(f"Calibration Error: {calibration_err:.4f}")
 
         mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
         var = var * (dmax - dmin) / 2
