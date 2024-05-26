@@ -7,29 +7,6 @@ import scipy.linalg
 from NF import thops
 
 
-class Permute2d(nn.Module):
-    def __init__(self, num_channels, shuffle):
-        super().__init__()
-        self.num_channels = num_channels
-        self.indices = np.arange(self.num_channels - 1, -1, -1).astype(np.long)
-        self.indices_inverse = np.zeros((self.num_channels), dtype=np.long)
-        for i in range(self.num_channels):
-            self.indices_inverse[self.indices[i]] = i
-        if shuffle:
-            self.reset_indices()
-
-    def reset_indices(self):
-        np.random.shuffle(self.indices)
-        for i in range(self.num_channels):
-            self.indices_inverse[self.indices[i]] = i
-
-    def forward(self, input, logdet=None, reverse=False):
-        if not reverse:
-            return input[:, self.indices, :, :], logdet
-        else:
-            return input[:, self.indices_inverse, :, :], logdet
-
-
 class InvertibleConv1x1(nn.Module): # 3D version
     def __init__(self, num_channels, LU_decomposed=False):
         super().__init__()
@@ -68,10 +45,10 @@ class InvertibleConv1x1(nn.Module): # 3D version
                 # dlogdet = torch.slogdet(self.weight)[1] * pixels
                 # CPU version is 2x faster, https://github.com/didriknielsen/survae_flows/issues/5.
                 dlogdet = (torch.slogdet(self.weight.to('cpu'))[1] * thops.pixels(input)).to(self.weight.device)
-                weight = self.weight.view(self.w_shape[0], self.w_shape[1], 1, 1, 1)
+                weight = self.weight.view(self.w_shape[0], self.w_shape[1], 1)
             else:
                 dlogdet = 0
-                weight = torch.inverse(self.weight.double()).float().view(self.w_shape[0], self.w_shape[1], 1, 1, 1)
+                weight = torch.inverse(self.weight.double()).float().view(self.w_shape[0], self.w_shape[1], 1)
             return weight, dlogdet
         else:
             self.p = self.p.to(input.device)
@@ -87,7 +64,7 @@ class InvertibleConv1x1(nn.Module): # 3D version
                 l = torch.inverse(l.double()).float()
                 u = torch.inverse(u.double()).float()
                 w = torch.matmul(u, torch.matmul(l, self.p.inverse()))
-            return w.view(self.w_shape[0], self.w_shape[1], 1, 1, 1), dlogdet
+            return w.view(self.w_shape[0], self.w_shape[1], 1), dlogdet
 
     def forward(self, input, logdet=None, reverse=False):
         """
@@ -95,49 +72,12 @@ class InvertibleConv1x1(nn.Module): # 3D version
         """
         weight, dlogdet = self.get_weight(input, reverse)
         if not reverse:
-            z = F.conv3d(input, weight) # fc layer, ie, permute channel
+            z = F.conv1d(input, weight) # fc layer, ie, permute channel
             if logdet is not None:
                 logdet = logdet + dlogdet
             return z, logdet
         else:
-            z = F.conv3d(input, weight)
+            z = F.conv1d(input, weight)
             if logdet is not None:
                 logdet = logdet - dlogdet
             return z, logdet
-
-
-class InvertibleConv1x1_1D(nn.Module):
-    def __init__(self, num_channels, dim=1):
-        super(InvertibleConv1x1_1D, self).__init__()
-        
-        w_shape = [num_channels, num_channels]
-        w_init = np.linalg.qr(np.random.randn(*w_shape))[0].astype(np.float32)
-        
-        # Sample a random orthogonal matrix:
-        # self.register_parameter("W", nn.Parameter(torch.Tensor(w_init)))
-        self.W = nn.Parameter(torch.from_numpy(w_init), requires_grad=True)
-        
-        if dim == 1:
-            self.equation = 'ij,bjn->bin'
-            self.Ndim = 2
-        elif dim == 2 or dim == -1:
-            self.equation = 'ij,bnj->bni'
-            self.Ndim = 1
-        else:
-            raise NotImplementedError(f"Unsupport dim {dim} for InvertibleConv1x1 Layer.")
-        
-    def forward(self, x, logdet=None, reverse=False):
-        """
-        log-det = log|abs(|W|)| * pixels
-        """
-        if not reverse: # conv along channels
-            x = torch.einsum(self.equation, self.W, x)
-            dlogdet = torch.slogdet(self.W)[1] * x.shape[self.Ndim]
-        else:
-            inv_W = torch.inverse(self.W)
-            x = torch.einsum(self.equation, inv_W, x)
-            dlogdet = -torch.slogdet(self.W)[1] * x.shape[self.Ndim]
-        
-        logdet = logdet + dlogdet
-        return x, logdet
-

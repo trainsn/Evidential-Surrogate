@@ -47,5 +47,5 @@ def cat_feature(tensor_a, tensor_b):
     return torch.cat((tensor_a, tensor_b), dim=1)
 
 
-def pixels(tensor): # for 3d
-    return int(tensor.size(2) * tensor.size(3) * tensor.size(4))
+def pixels(tensor): # for 1d
+    return int(tensor.size(2))

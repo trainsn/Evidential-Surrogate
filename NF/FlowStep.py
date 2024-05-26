@@ -4,7 +4,7 @@ from torch import nn as nn
 from NF import ActNorms, Permutations, AffineCouplings
 
 class FlowStep(nn.Module):
-    def __init__(self, in_channels, cond_channels=None, flow_actNorm='actNorm2d', flow_permutation='invconv', flow_coupling='Affine', LRvsothers=True,
+    def __init__(self, in_channels, cond_channels=None, flow_actNorm='actNorm1d', flow_permutation='invconv', flow_coupling='Affine', LRvsothers=True,
                  actnorm_scale=1.0, LU_decomposed=False):
         super().__init__()
         self.flow_actNorm = flow_actNorm
@@ -12,8 +12,8 @@ class FlowStep(nn.Module):
         self.flow_coupling = flow_coupling
 
         # 1. actnorm
-        if self.flow_actNorm == 'actNorm3d':
-            self.actnorm = ActNorms.ActNorm3d(in_channels, actnorm_scale)
+        if self.flow_actNorm == 'actNorm1d':
+            self.actnorm = ActNorms.ActNorm1d(in_channels, actnorm_scale)
         elif self.flow_actNorm == "none":
             self.actnorm = None
 
@@ -24,14 +24,8 @@ class FlowStep(nn.Module):
             self.permute = None
 
         # 3. coupling
-        if self.flow_coupling == "AffineInjector":
-            self.affine = AffineCouplings.AffineCouplingInjector(in_channels=in_channels, cond_channels=cond_channels)
-        elif self.flow_coupling == "noCoupling":
-            pass
-        elif self.flow_coupling == "Affine":
+        if self.flow_coupling == "Affine":
             self.affine = AffineCouplings.AffineCoupling(in_channels=in_channels, cond_channels=cond_channels)
-        elif self.flow_coupling == "Affine3shift":
-            self.affine = AffineCouplings.AffineCoupling3shift(in_channels=in_channels, cond_channels=cond_channels, LRvsothers=LRvsothers)
         
     def forward(self, z, u=None, logdet=None, reverse=False):
         if not reverse:

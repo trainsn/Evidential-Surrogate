@@ -1,0 +1,1 @@
+python -u train_NF.py --seed 0 --dsp 28 --lr 1e-4 --param_l1_loss 1 --var_loss 10 --mean_loss 1 --log-every 2 --check-every 20
