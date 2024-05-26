@@ -142,11 +142,12 @@ def main(args):
             var = torch.std(fake_data, dim=0)[:, 0]
             all_mse = mse_criterion(test_C42a_data, mu)
             mse = all_mse.mean().item()
-            nll, trimmed_nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var)
-            print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
+            nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var, reduce=False)
+            print(f"NLL: {nll.median().item():.2f}")
 
             utils.gen_cutoff(all_mse, var, "dropout")
-            calibration_err = utils.gen_calibration(mu, var, test_C42a_data)
+            calibration_err, observed_p = utils.gen_calibration(mu, var, test_C42a_data)
+            np.save(os.path.join("figs", "dropout_observed_conf"), observed_p)
             print(f"Calibration Error: {calibration_err:.4f}")
 
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
@@ -154,8 +155,8 @@ def main(args):
         elif args.loss == 'Evidential':
             fake_data = g_model(test_params)
             gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
-            nll, trimmed_nll = loss_helper.NIG_NLL(test_C42a_data.unsqueeze(1), gamma, v, alpha, beta)
-            print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
+            nll = loss_helper.NIG_NLL(test_C42a_data.unsqueeze(1), gamma, v, alpha, beta, reduce=False)
+            print(f"NLL: {nll.median().item():.2f}")
             mu = gamma[:, 0]
             all_mse = mse_criterion(test_C42a_data, mu)
             mse = all_mse.mean().item()
@@ -163,7 +164,8 @@ def main(args):
             var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
 
             utils.gen_cutoff(all_mse, var, "evidential")
-            calibration_err = utils.gen_calibration(mu, var, test_C42a_data)
+            calibration_err, observed_p = utils.gen_calibration(mu, var, test_C42a_data)
+            np.save(os.path.join("figs", "evidential_observed_conf"), observed_p)
             print(f"Calibration Error: {calibration_err:.4f}")
 
             sigma = sigma * (dmax - dmin) / 2

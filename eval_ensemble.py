@@ -130,11 +130,12 @@ def main(args):
         var = torch.std(fake_data, dim=0)[:, 0]
         all_mse = mse_criterion(test_C42a_data, mu)
         mse = all_mse.mean().item()
-        nll, trimmed_nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var)
-        print(f"NLL: {nll:.2f}\tTrimmed NLL: {trimmed_nll:.2f}")
+        nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var, reduce=False)
+        print(f"NLL: {nll.median().item():.2f}")
 
         utils.gen_cutoff(all_mse, var, "ensemble")
-        calibration_err = utils.gen_calibration(mu, var, test_C42a_data)
+        calibration_err, observed_p = utils.gen_calibration(mu, var, test_C42a_data)
+        np.save(os.path.join("figs", "ensemble_observed_conf"), observed_p)
         print(f"Calibration Error: {calibration_err:.4f}")
 
         mu = ((mu + 1) * (dmax - dmin) / 2) + dmin

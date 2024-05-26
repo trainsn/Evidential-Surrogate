@@ -4,20 +4,18 @@ import numpy as np
 import pdb
 
 def Gaussian_NLL(y, mu, sigma, reduce=True):
-    logprob  = -torch.log(sigma) - 0.5 * torch.log(2 * torch.tensor(np.pi)) - 0.5 * ((y - mu) / sigma) ** 2
+    logprob  = -torch.log(sigma) - 0.5 * torch.log(2 * torch.tensor(torch.pi)) - 0.5 * ((y - mu) / sigma) ** 2
     if reduce:
         # Mean reduction over all dimensions except the batch dimension
         loss = -torch.mean(logprob, dim=tuple(range(1, y.dim())))
-        sorted_loss, _ = torch.sort(loss)
-        trimmed_loss = sorted_loss[3:-3]
-        return torch.mean(loss), torch.mean(trimmed_loss)
+        return torch.mean(loss)
     else:
         return -logprob
 
 def NIG_NLL(y, gamma, v, alpha, beta, reduce=True):
     twoBlambda = 2 * beta * (1 + v)
 
-    nll = 0.5 * torch.log(torch.tensor(np.pi) / v) \
+    nll = 0.5 * torch.log(torch.tensor(torch.pi) / v) \
         - alpha * torch.log(twoBlambda) \
         + (alpha + 0.5) * torch.log(v * (y - gamma) ** 2 + twoBlambda) \
         + torch.lgamma(alpha) \
@@ -26,10 +24,8 @@ def NIG_NLL(y, gamma, v, alpha, beta, reduce=True):
     if reduce:
         # Mean reduction over all dimensions except the batch dimension
         nll = torch.mean(nll, dim=tuple(range(1, y.dim())))
-        sorted_nll, _ = torch.sort(nll)
-        trimmed_nll = sorted_nll[3:-3]
     
-    return torch.mean(nll), torch.mean(trimmed_nll) if reduce else nll 
+    return torch.mean(nll) if reduce else nll 
 
 def NIG_Reg(y, gamma, v, alpha, beta, reduce=True):
     # Calculating the absolute error

@@ -40,7 +40,6 @@ def gen_calibration(mu, var, gt):
         obs_p = (gt < ppf).sum().item() / var.numel()
         observed_p.append(obs_p)
     observed_p = np.array(observed_p)
-    pdb.set_trace()
 
     calibration_err = np.abs(expected_p - observed_p).mean()
-    return calibration_err
+    return calibration_err, observed_p
