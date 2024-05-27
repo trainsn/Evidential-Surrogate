@@ -102,7 +102,7 @@ class ParamFlowNetCond(nn.Module):
                 z = layer.z0_to_m(z, d_param)
         return z, param_z
 
-    def reverse_flow(self, z, d_param, shape, device='cpu', logdet=None, eps_std=1, recoverZ=True):
+    def reverse_flow(self, z, d_param, logdet=None, eps_std=1, recoverZ=True):
         for layer in reversed(self.layers): 
             if isinstance(layer, FlowStep):
                 z, logdet = layer(z, u=None, logdet=logdet, reverse=True)
@@ -120,5 +120,5 @@ class ParamFlowNetCond(nn.Module):
                 z, logdet = layer(z, d_param, eps_std=eps_std, logdet=logdet, reverse=True, recoverZ=recoverZ)
         return z, param_z, logdet
     
-    def sample(self, dummy_z, d_param, shape=[1,1,1], device='cpu', logdet=0, eps_std=0.9, recoverZ=True):
-        return self.reverse_flow(dummy_z, d_param, shape, device=device, logdet=logdet, eps_std=eps_std, recoverZ=recoverZ)
+    def sample(self, dummy_z, d_param, logdet=0, eps_std=0.9, recoverZ=True):
+        return self.reverse_flow(dummy_z, d_param, logdet=logdet, eps_std=eps_std, recoverZ=recoverZ)

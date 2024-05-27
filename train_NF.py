@@ -33,12 +33,10 @@ def parse_args():
     parser.add_argument("--resume", type=str, default="",
                         help="path to the latest checkpoint (default: none)")
 
-    parser.add_argument("--dsp", type=int, default=35,
-                        help="dimensions of the simulation parameters (default: 35)")
-    parser.add_argument("--dspe", type=int, default=512,
-                        help="dimensions of the simulation parameters' encode (default: 512)")
-    parser.add_argument("--ch", type=int, default=4,
-                        help="channel multiplier (default: 4)")
+    parser.add_argument("--K", type=int, default=3,
+                        help="the number of unconditional transformations")
+    parser.add_argument("--K_cond", type=int, default=3,
+                        help="the number of conditional transformations")
 
     parser.add_argument("--sn", action="store_true", default=False,
                         help="enable spectral normalization")
@@ -105,7 +103,7 @@ def main(args):
         else:
             return m
 
-    g_model = ParamFlowNetCond(C=1, K=7, K_cond=5)
+    g_model = ParamFlowNetCond(C=1, K=args.K, K_cond=args.K_cond)
     print(g_model)
     # g_model.apply(weights_init)
     # if args.sn:
@@ -185,15 +183,15 @@ def main(args):
                         epoch + 1, epoch_logpx_loss / num_batches, epoch_mean_loss / num_batches, var_loss / num_batches, epoch_param_l1_loss / num_batches))
 
         # testing...
-        # g_model.eval()
-        # test_loss = 0.
-        # with torch.no_grad():
-        #     fake_data = g_model(test_params)
-            
-        # test_losses.append(test_loss)
-        # if (epoch + 1) % args.log_every == 0:
-        #     print("====> Epoch: {} Test set loss: {:.6f}, Test set MSE {:.6f}".format(
-        #                 epoch + 1, test_losses[-1], test_mse))
+        g_model.eval()
+        with torch.no_grad():
+            fake_data, _, _ = g_model.sample(dummy_z=None, d_param=test_params, eps_std=0.8)
+            fake_data = fake_data[:, 0]
+            test_mse = torch.mean((fake_data - test_C42a_data) ** 2)
+
+        if (epoch + 1) % args.log_every == 0:
+            print("====> Epoch: {} Test set MSE {:.6f}".format(
+                        epoch + 1, test_mse))
 
         # saving...
         if (epoch + 1) % args.check_every == 0:
