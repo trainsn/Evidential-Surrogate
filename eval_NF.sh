@@ -1,0 +1,1 @@
+python -u eval_NF.py --K 7 --K_cond 5 --n-samples 8 --resume models/model_NF_250.pth.tar --id 115
