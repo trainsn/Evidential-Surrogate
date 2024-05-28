@@ -77,7 +77,12 @@ def main(args):
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
-    out_features = 4 if args.loss == 'Evidential' else 1
+    if args.loss == 'Evidential':
+        out_features = 4
+    elif args.loss == 'Gaussian':
+        out_features = 2
+    else:
+        out_features = 1
 
     network_str = "model_" + args.loss + "_seed" + str(args.seed) 
     if args.dropout: 
@@ -115,6 +120,8 @@ def main(args):
     g_model.to(device)
     if args.loss == 'Evidential':
         print('Use Evidential Loss')
+    elif args.loss == 'Gaussian':
+        print('Use Gaussian Loss')
     elif args.loss == 'MSE':
         print('Use MSE Loss')
         criterion = nn.MSELoss()
@@ -168,6 +175,11 @@ def main(args):
                 loss = loss_helper.EvidentialRegression(sub_data, fake_data, coeff=1e-2)
                 gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=1) 
                 mse = torch.mean((gamma - sub_data) ** 2)
+            elif args.loss == 'Gaussian':
+                sub_data = sub_data.unsqueeze(1)
+                mu, sigma = fake_data.chunk(2, dim=1)
+                loss = loss_helper.Gaussian_NLL(sub_data, mu, sigma)
+                mse = torch.mean((mu - sub_data) ** 2)
             else:
                 fake_data = fake_data[:, 0]
                 loss = criterion(sub_data, fake_data)
@@ -192,6 +204,10 @@ def main(args):
                 test_loss = loss_helper.EvidentialRegression(test_C42a_data.unsqueeze(1), fake_data, coeff=1e-2)
                 gamma, _, _, _ = torch.chunk(fake_data, out_features, dim=1) 
                 test_mse = torch.mean((gamma - test_C42a_data.unsqueeze(1)) ** 2)
+            elif args.loss == 'Gaussian':
+                mu, sigma = fake_data.chunk(2, dim=1)
+                test_loss = loss_helper.Gaussian_NLL(test_C42a_data.unsqueeze(1), mu, sigma)
+                test_mse = torch.mean((mu - test_C42a_data.unsqueeze(1)) ** 2)
             else:
                 fake_data = fake_data[:, 0]
                 test_loss = criterion(test_C42a_data, fake_data).item()

@@ -77,7 +77,12 @@ def main(args):
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
-    out_features = 4 if args.loss == 'Evidential' else 1
+    if args.loss == 'Evidential':
+        out_features = 4
+    elif args.loss == 'Gaussian':
+        out_features = 2
+    else:
+        out_features = 1
 
     # model
     def weights_init(m):

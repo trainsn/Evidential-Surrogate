@@ -49,6 +49,13 @@ class Generator(nn.Module):
         # Using softplus as the activation function for evidence
         return F.softplus(x)
     
+    def DenseNormal(self, x):
+        mu, logsigma = x.chunk(2, dim=1)
+        mu = torch.tanh(mu)
+        sigma = self.evidence(logsigma)
+        # Concatenating the tensors along the last dimension
+        return torch.cat([mu, sigma], dim=1)
+    
     def DenseNormalGamma(self, x):
         mu, logv, logalpha, logbeta = x.chunk(4, dim=1)
         mu = torch.tanh(mu)
@@ -66,6 +73,8 @@ class Generator(nn.Module):
 
         if self.out_features == 4:
             x = self.DenseNormalGamma(x)
+        elif self.out_features == 2:
+            x = self.DenseNormal(x)
         else:
             x = self.tanh(x)
 
