@@ -145,7 +145,7 @@ def main(args):
             train_losses = checkpoint["train_losses"]
             test_losses = checkpoint["test_losses"]
             print("=> loaded checkpoint {} (epoch {})"
-                          .format(args.resume, checkpoint["epoch"]))
+                .format(args.resume, checkpoint["epoch"]))
             
     params, C42a_data, sample_weight = ReadYeastDataset()
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()

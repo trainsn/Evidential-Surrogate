@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from yeast import *
 from generator import Generator
 
 import pdb
@@ -36,18 +37,9 @@ def parse_args():
                         help="dimensions of the simulation parameters' encode (default: 512)")
     parser.add_argument("--ch", type=int, default=4,
                         help="channel multiplier (default: 4)")
-
-    parser.add_argument("--lr", type=float, default=1e-3,
-                        help="learning rate (default: 1e-3)")
-    parser.add_argument("--beta1", type=float, default=0.9,
-                        help="beta1 of Adam (default: 0.9)")
-    parser.add_argument("--beta2", type=float, default=0.999,
-                        help="beta2 of Adam (default: 0.999)")
-    parser.add_argument("--epochs", type=int, default=50000,
-                        help="number of epochs to update")
     
-    parser.add_argument("--log-every", type=int, default=40,
-                        help="log training status every given number of batches")
+    parser.add_argument("--n-samples", type=int, default=10000,
+                        help="number of samples run for selecting new ones")
     
     parser.add_argument("--lam", type=float, default=1e-2,
                         help="l2-norm regularizer to constrain the input search space within a known confinement")
@@ -74,14 +66,6 @@ def main(args):
     g_model.to(device)
     criterion = nn.MSELoss()
 
-    # Random initial values in range [-1, 1]
-    tmp_params = (2 * torch.rand((1, args.dsp)) - 1).to(device)
-    tmp_params.requires_grad_(True)
-    initial_params = tmp_params.detach().clone()
-    # optimizer
-    # p_optimizer = optim.Adam([tmp_params], lr=args.lr, betas=(args.beta1, args.beta2))
-    p_optimizer = optim.SGD([tmp_params], lr=args.lr)
-
     # load checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -91,21 +75,27 @@ def main(args):
             g_model.load_state_dict(checkpoint["g_model_state_dict"])
             print("=> loaded checkpoint {} (epoch {})"
                     .format(args.resume, checkpoint["epoch"]))
+            
+    params, C42a_data, sample_weight = ReadYeastDataset()
+    params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
+    train_split = torch.from_numpy(np.load('train_split.npy'))
+    train_params = params[train_split]
+
+    # Function to randomly initialize input parameters
+    def initialize_inputs(num_samples=10):
+        return torch.rand(num_samples, args.dsp) * 2. - 1.
+    
+    # Randomly initialize input parameters
+    inputs = initialize_inputs(args.n_samples).to(device)
 
     # udpating params...
     g_model.train()
-    for step in range(args.epochs):
-        fake_data = g_model(tmp_params)
-        gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
-        sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]    
-        var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
-
-        dist = criterion(tmp_params, initial_params)
-        obj = -var.mean()
-        obj.backward()
-        p_optimizer.step()
-        if step % args.log_every == 0:
-            print(f'Step {step}: obj = {obj}, Uncertainty = {var.mean().item()}, Dist = {dist.item()}')
+    fake_data = g_model(inputs)
+    gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
+    sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]    
+    var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
+    pdb.set_trace()
+    
 
 if __name__ == "__main__":
     main(parse_args())
