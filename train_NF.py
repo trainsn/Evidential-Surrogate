@@ -110,7 +110,6 @@ def main(args):
     #     g_model = add_sn(g_model)
 
     g_model.to(device)
-    train_losses, test_losses = [], []
 
     # optimizer
     g_optimizer = optim.Adam(g_model.parameters(), lr=args.lr,
@@ -124,8 +123,6 @@ def main(args):
             args.start_epoch = checkpoint["epoch"]
             g_model.load_state_dict(checkpoint["g_model_state_dict"])
             g_optimizer.load_state_dict(checkpoint["g_optimizer_state_dict"])
-            train_losses = checkpoint["train_losses"]
-            test_losses = checkpoint["test_losses"]
             print("=> loaded checkpoint {} (epoch {})"
                           .format(args.resume, checkpoint["epoch"]))
             
@@ -198,9 +195,7 @@ def main(args):
             print("=> saving checkpoint at epoch {}".format(epoch))
             torch.save({"epoch": epoch + 1,
                         "g_model_state_dict": g_model.state_dict(),
-                        "g_optimizer_state_dict": g_optimizer.state_dict(),
-                        "train_losses": train_losses,
-                        "test_losses": test_losses},
+                        "g_optimizer_state_dict": g_optimizer.state_dict()},
                         os.path.join("models", network_str + "_" + str(epoch + 1) + ".pth.tar"))
 
             torch.save(g_model.state_dict(), 

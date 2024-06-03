@@ -51,3 +51,6 @@ def ReadYeastDataset():
     samp_weight1 = np.where(PF_C42a >= 0.35, 3, 1)
 
     return params_slice, C42a_dat_scaled, samp_weight1
+
+if __name__ == "__main__":
+    ReadYeastDataset()

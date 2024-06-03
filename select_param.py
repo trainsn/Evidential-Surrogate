@@ -38,8 +38,10 @@ def parse_args():
     parser.add_argument("--ch", type=int, default=4,
                         help="channel multiplier (default: 4)")
     
-    parser.add_argument("--n-samples", type=int, default=10000,
-                        help="number of samples run for selecting new ones")
+    parser.add_argument("--n-candidates", type=int, default=10000,
+                        help="number of candidates run for selection")
+    parser.add_argument("--k", type=int, default=2400,
+                        help="number of selected samples")
     
     parser.add_argument("--lam", type=float, default=1e-2,
                         help="l2-norm regularizer to constrain the input search space within a known confinement")
@@ -86,7 +88,7 @@ def main(args):
         return torch.rand(num_samples, args.dsp) * 2. - 1.
     
     # Randomly initialize input parameters
-    inputs = initialize_inputs(args.n_samples).to(device)
+    inputs = initialize_inputs(args.n_candidates).to(device)
 
     # udpating params...
     g_model.train()
@@ -94,8 +96,38 @@ def main(args):
     gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
     sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]    
     var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
-    pdb.set_trace()
+
+    selected_indices = torch.zeros(args.k, dtype=torch.long)
+    distances = torch.full((args.n_candidates,), float('inf'), dtype=torch.float).to(device)
+
+    for i in range(train_params.shape[0]):
+        exist_param = train_params[i]
+        new_distances = torch.norm(inputs - exist_param, dim=1)
+        distances = torch.min(distances, new_distances)
+
+    for i in range(args.k):
+        scores = args.lam * var.mean(1) + distances 
+        scores[selected_indices[:i]] = float('-inf')
+        selected_indices[i] = torch.argmax(scores).item()
+        
+        new_point_distances = torch.norm(inputs - inputs[selected_indices[i]], dim=1)
+        distances = torch.min(distances, new_point_distances)
     
+    selected_inputs_slice = inputs[selected_indices]
+    selected_inputs_slice = selected_inputs_slice.cpu().numpy()
+
+    selected_inputs = np.zeros((args.k, 35))
+    selected_inputs[: ,:25] = selected_inputs_slice[:, :25]
+    selected_inputs[: ,32:] = selected_inputs_slice[:, 25:]
+    selected_inputs[:, 25:32] = np.random.rand(args.k, 7) * 2 - 1
+
+     # Open file and save the points
+    with open("/fs/ess/PAS0027/yeast_polarization_Neng/run/list_of_parameters", 'w') as file:
+        for input in selected_inputs:
+            # Create a string for each point, joining coordinates with a space
+            input_str = '\t'.join(f"{coord:.6f}" for coord in input)
+            file.write(input_str + '\n')
+    print(f"Selected inputs have been saved to 'list_of_parameters'")
 
 if __name__ == "__main__":
     main(parse_args())

@@ -167,7 +167,6 @@ def main(args):
             mse = all_mse.mean().item()
             sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]    
             var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
-            pdb.set_trace()
 
             utils.gen_cutoff(all_mse, var, "evidential")
             calibration_err, observed_p = utils.gen_calibration(mu, var, test_C42a_data)
