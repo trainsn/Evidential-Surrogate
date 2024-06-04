@@ -43,6 +43,8 @@ def parse_args():
 
     parser.add_argument("--sn", action="store_true", default=False,
                         help="enable spectral normalization")
+    parser.add_argument("--active", action="store_true", default=False,
+                        help="active learning version")
 
     parser.add_argument("--lr", type=float, default=1e-3,
                         help="learning rate (default: 1e-3)")
@@ -87,6 +89,8 @@ def main(args):
     network_str = "model_" + args.loss + "_seed" + str(args.seed) 
     if args.dropout: 
         network_str += "_dp" 
+    if args.active: 
+        network_str += "_active" 
 
     # set random seed
     np.random.seed(args.seed)
@@ -147,9 +151,11 @@ def main(args):
             print("=> loaded checkpoint {} (epoch {})"
                 .format(args.resume, checkpoint["epoch"]))
             
-    params, C42a_data, sample_weight = ReadYeastDataset()
+    params, C42a_data, sample_weight = ReadYeastDataset(args.active)
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
     train_split = torch.from_numpy(np.load('train_split.npy'))
+    if args.active:
+        train_split = torch.cat((train_split, torch.ones(2400, dtype=torch.bool)), dim=0)
     train_params, train_C42a_data, train_sample_weight = params[train_split], C42a_data[train_split], sample_weight[train_split]
     test_params, test_C42a_data = params[~train_split], C42a_data[~train_split]
     len_train = train_params.shape[0]
