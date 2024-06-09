@@ -42,10 +42,11 @@ def ReadYeastDataset(active):
         set_range = range(1, 25)
         # Load the data from files
         for i in set_range:
-            set_dir = os.path.join('/fs/ess/PAS0027/yeast_polarization_Neng/run', f'set{i}')
-            params.append(read_data_from_file(os.path.join(set_dir, 'list_of_parameters')))
-            C42a_dat.append(read_data_from_file(os.path.join(set_dir, 'C42a_dat')))
-            PF_C42a.append(read_data_from_file(os.path.join(set_dir, 'PF_C42a_set_of_100')))
+            set_dir = os.path.join('/fs/ess/PAS0027/yeast_polarization_Neng/run_base', f'set{i}')
+            if os.path.exists(os.path.join(set_dir, 'C42a_dat')):
+                params.append(read_data_from_file(os.path.join(set_dir, 'list_of_parameters')))
+                C42a_dat.append(read_data_from_file(os.path.join(set_dir, 'C42a_dat')))
+                PF_C42a.append(read_data_from_file(os.path.join(set_dir, 'PF_C42a_set_of_100')))
 
     # Concatenate all data from each file type into single arrays
     params = np.concatenate(params, axis=0) if params else np.array([], dtype=float)
@@ -59,7 +60,7 @@ def ReadYeastDataset(active):
 
     samp_weight1 = np.where(PF_C42a >= 0.35, 3, 1)
 
-    return params_slice, C42a_dat_scaled, samp_weight1
+    return params_slice, C42a_dat_scaled, samp_weight1, dmin, dmax
 
 if __name__ == "__main__":
     ReadYeastDataset()

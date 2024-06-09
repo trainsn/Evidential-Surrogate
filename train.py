@@ -90,7 +90,7 @@ def main(args):
     if args.dropout: 
         network_str += "_dp" 
     if args.active: 
-        network_str += "_active" 
+        network_str += "_activebase" 
 
     # set random seed
     np.random.seed(args.seed)
@@ -151,11 +151,11 @@ def main(args):
             print("=> loaded checkpoint {} (epoch {})"
                 .format(args.resume, checkpoint["epoch"]))
             
-    params, C42a_data, sample_weight = ReadYeastDataset(args.active)
+    params, C42a_data, sample_weight, _, _ = ReadYeastDataset(args.active)
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
     train_split = torch.from_numpy(np.load('train_split.npy'))
     if args.active:
-        train_split = torch.cat((train_split, torch.ones(2400, dtype=torch.bool)), dim=0)
+        train_split = torch.cat((train_split, torch.ones(params.shape[0] - train_split.shape[0], dtype=torch.bool)), dim=0)
     train_params, train_C42a_data, train_sample_weight = params[train_split], C42a_data[train_split], sample_weight[train_split]
     test_params, test_C42a_data = params[~train_split], C42a_data[~train_split]
     len_train = train_params.shape[0]

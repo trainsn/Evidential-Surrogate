@@ -20,7 +20,7 @@ def norm_ppf(p, mean=0.0, std=1.0):
     normal_dist = Normal(mean, std)
     return normal_dist.icdf(torch.tensor(p))
 
-def gen_cutoff(all_mse, var, method):
+def gen_cutoff_uncertainty(all_mse, var, method):
     percentiles = np.linspace(0, 1, 100, endpoint=False)
     cutoff_inds = (percentiles * var.numel()).astype(int)
     _, sorted_varidx = torch.sort(var.flatten(), descending=True)
@@ -29,7 +29,19 @@ def gen_cutoff(all_mse, var, method):
     for cutoff in cutoff_inds:
         cutoff_mse = all_mse.flatten()[sorted_varidx[cutoff:]].mean().item()
         cutoff_psnrs.append(20. * np.log10(2.) - 10. * np.log10(cutoff_mse))
-    np.save(os.path.join("figs", method + "_cutoff_psnrs"), np.array(cutoff_psnrs))
+    np.save(os.path.join("figs", method + "_cutoff_uncertainty_psnrs"), np.array(cutoff_psnrs))
+
+def gen_ret_value(all_mse, data, method):
+    percentiles = np.linspace(0, 1, 51, endpoint=True)
+    ret_inds = (percentiles * data.numel()).astype(int)
+    _, sorted_dataidx = torch.sort(data.flatten(), descending=True)
+
+    ret_psnrs = []
+    for ret in ret_inds[1:]:
+        ret_mse = all_mse.flatten()[sorted_dataidx[:ret]].mean().item()
+        ret_psnrs.append(20. * np.log10(2.) - 10. * np.log10(ret_mse))
+    pdb.set_trace()
+    np.save(os.path.join("figs", method + "_ret_value_psnrs"), np.array(ret_psnrs))
 
 def gen_calibration(mu, var, gt):
     expected_p = np.linspace(0, 1, 40, endpoint=True)

@@ -128,16 +128,12 @@ def main(args):
             print("=> loaded checkpoint {} (epoch {})"
                     .format(args.resume, checkpoint["epoch"]))
             
-    params, C42a_data, sample_weight = ReadYeastDataset(args.active)
+    params, C42a_data, sample_weight, dmin, dmax = ReadYeastDataset(args.active)
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
     train_split = torch.from_numpy(np.load('train_split.npy'))
     if args.active:
         train_split = torch.cat((train_split, torch.ones(2400, dtype=torch.bool)), dim=0)
     test_params, test_C42a_data = params[~train_split], C42a_data[~train_split]
-    if not args.active:
-        dmin, dmax = 0.0, 580.783
-    else:
-        dmin, dmax = 0.0, 696.052
 
     # testing...
     g_model.train()
@@ -153,13 +149,12 @@ def main(args):
             mu = torch.mean(fake_data, dim=0)[:, 0]
             var = torch.std(fake_data, dim=0)[:, 0]
             all_mse = mse_criterion(test_C42a_data, mu)
-            if not args.active:
-                all_mse /= (696.052 / 580.783) ** 2
+            all_mse /= (696.052 / dmax) ** 2
             mse = all_mse.mean().item()
             nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var, reduce=False)
             print(f"NLL: {nll.median().item():.2f}")
 
-            utils.gen_cutoff(all_mse, var, "dropout")
+            utils.gen_cutoff_uncertainty(all_mse, var, "dropout")
             calibration_err, observed_p = utils.gen_calibration(mu, var, test_C42a_data)
             np.save(os.path.join("figs", "dropout_observed_conf"), observed_p)
             print(f"Calibration Error: {calibration_err:.4f}")
@@ -173,8 +168,9 @@ def main(args):
             print(f"NLL: {nll.median().item():.2f}")
             mu = gamma[:, 0]
             all_mse = mse_criterion(test_C42a_data, mu)
-            if not args.active:
-                all_mse /= (696.052 / 580.783) ** 2
+            all_mse /= (696.052 / dmax) ** 2
+            if args.active:
+                utils.gen_ret_value(all_mse, test_C42a_data, "activebase")
             mse = all_mse.mean().item()
             sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]    
             var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
@@ -182,7 +178,7 @@ def main(args):
             title = "evidential"
             if args.active:
                 title += "_active"
-            utils.gen_cutoff(all_mse, var, title)
+            utils.gen_cutoff_uncertainty(all_mse, var, title)
             calibration_err, observed_p = utils.gen_calibration(mu, var, test_C42a_data)
             title = "evidential_observed_conf"
             if args.active:
