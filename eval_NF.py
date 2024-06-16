@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import argparse
 import math
+import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -51,7 +52,7 @@ def parse_args():
     parser.add_argument("--n-samples", type=int, default=10,
                         help="number of samples run for the dropout or ensemble model")
     
-    parser.add_argument("--id", type=int, default=51,
+    parser.add_argument("--id", type=int, default=0,
                         help="instance id in the testing set")
 
     return parser.parse_args()
@@ -100,22 +101,22 @@ def main(args):
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint {}".format(args.resume))
-            checkpoint = torch.load(args.resume)
+            checkpoint = torch.load(args.resume, map_location=torch.device(device))
             args.start_epoch = checkpoint["epoch"]
             g_model.load_state_dict(checkpoint["g_model_state_dict"])
             g_optimizer.load_state_dict(checkpoint["g_optimizer_state_dict"])
             print("=> loaded checkpoint {} (epoch {})"
                     .format(args.resume, checkpoint["epoch"]))
             
-    params, C42a_data, sample_weight = ReadYeastDataset()
-    params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
+    params, C42a_data, sample_weight, dmin, dmax  = ReadYeastDataset(active=False)
+    params, C42a_data, sample_weight = torch.from_numpy(params).float().to(device), torch.from_numpy(C42a_data).float().to(device), torch.from_numpy(sample_weight).float().to(device)
     train_split = torch.from_numpy(np.load('train_split.npy'))
     test_params, test_C42a_data = params[~train_split], C42a_data[~train_split]
-    dmin, dmax = 0.0, 580.783
 
     # testing...
     g_model.train()
     with torch.no_grad():
+        start_time = time.time()  # Start timing
         fake_data = [] 
         for _ in range(args.n_samples):
             tmp, _, _ = g_model.sample(dummy_z=None, d_param=test_params, eps_std=0.8)
@@ -123,7 +124,9 @@ def main(args):
         fake_data = torch.stack(fake_data, dim=0)
         mu = torch.mean(fake_data, dim=0)[:, 0]
         var = torch.std(fake_data, dim=0)[:, 0]
+        end_time = time.time()  # End timing
         all_mse = mse_criterion(test_C42a_data, mu)
+        all_mse /= (696.052 / dmax) ** 2
         mse = all_mse.mean().item()
         nll = loss_helper.Gaussian_NLL(test_C42a_data, mu, var, reduce=False)
         print(f"NLL: {nll.median().item():.2f}")
@@ -134,6 +137,8 @@ def main(args):
         fake_data = ((fake_data + 1) * (dmax - dmin) / 2) + dmin
         psnr = 20. * np.log10(2.) - 10. * np.log10(mse)
         print(f"PSNR: {psnr:.2f} dB")
+        total_time = end_time - start_time
+        print(f"Total evaluation time: {total_time:.4f} seconds")   
 
         # Rescale data back to original range
         test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin

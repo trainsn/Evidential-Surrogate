@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import argparse
 import math
+import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -65,7 +66,7 @@ def parse_args():
     parser.add_argument("--check-every", type=int, default=200,
                         help="save checkpoint every given number of epochs")
     
-    parser.add_argument("--id", type=int, default=51,
+    parser.add_argument("--id", type=int, default=0,
                         help="instance id in the testing set")
 
     return parser.parse_args()
@@ -121,7 +122,7 @@ def main(args):
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint {}".format(args.resume))
-            checkpoint = torch.load(args.resume)
+            checkpoint = torch.load(args.resume, map_location=torch.device(device))
             args.start_epoch = checkpoint["epoch"]
             g_model.load_state_dict(checkpoint["g_model_state_dict"])
             g_optimizer.load_state_dict(checkpoint["g_optimizer_state_dict"])
@@ -129,7 +130,7 @@ def main(args):
                     .format(args.resume, checkpoint["epoch"]))
             
     params, C42a_data, sample_weight, dmin, dmax = ReadYeastDataset(args.active)
-    params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
+    params, C42a_data, sample_weight = torch.from_numpy(params).float().to(device), torch.from_numpy(C42a_data).float().to(device), torch.from_numpy(sample_weight).float().to(device)
     train_split = torch.from_numpy(np.load('train_split.npy'))
     if args.active:
         train_split = torch.cat((train_split, torch.ones(2400, dtype=torch.bool)), dim=0)
@@ -138,6 +139,7 @@ def main(args):
     # testing...
     g_model.train()
     with torch.no_grad():
+        start_time = time.time()  # Start timing
         if args.dropout:
             assert args.loss == 'MSE'
             fake_data = []
@@ -148,6 +150,7 @@ def main(args):
             fake_data = torch.stack(fake_data, dim=0)
             mu = torch.mean(fake_data, dim=0)[:, 0]
             var = torch.std(fake_data, dim=0)[:, 0]
+            end_time = time.time()  # End timing
             all_mse = mse_criterion(test_C42a_data, mu)
             all_mse /= (696.052 / dmax) ** 2
             mse = all_mse.mean().item()
@@ -164,6 +167,7 @@ def main(args):
         elif args.loss == 'Gaussian':
             fake_data = g_model(test_params)
             mu, sigma = fake_data.chunk(2, dim=1)
+            end_time = time.time()  # End timing
             nll = loss_helper.Gaussian_NLL(test_C42a_data.unsqueeze(1), mu, sigma, reduce=False)
             print(f"NLL: {nll.median().item():.2f}")
 
@@ -178,6 +182,7 @@ def main(args):
         elif args.loss == 'Evidential':
             fake_data = g_model(test_params)
             gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
+            end_time = time.time()  # End timing
             nll = loss_helper.NIG_NLL(test_C42a_data.unsqueeze(1), gamma, v, alpha, beta, reduce=False)
             print(f"NLL: {nll.median().item():.2f}")
             mu = gamma[:, 0]
@@ -206,10 +211,13 @@ def main(args):
         else:
             fake_data = g_model(test_params)
             fake_data = fake_data[:, 0]
+            end_time = time.time()  # End timing
             mse = mse_criterion(test_C42a_data, fake_data).item()
             fake_data = ((fake_data + 1) * (dmax - dmin) / 2) + dmin
         psnr = 20. * np.log10(2.) - 10. * np.log10(mse)
         print(f"PSNR: {psnr:.2f} dB")
+        total_time = end_time - start_time
+        print(f"Total evaluation time: {total_time:.4f} seconds")   
 
         # Rescale data back to original range
         test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin
