@@ -161,6 +161,20 @@ def main(args):
 
             mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
             var = var * (dmax - dmin) / 2
+        elif args.loss == 'Gaussian':
+            fake_data = g_model(test_params)
+            mu, sigma = fake_data.chunk(2, dim=1)
+            nll = loss_helper.Gaussian_NLL(test_C42a_data.unsqueeze(1), mu, sigma, reduce=False)
+            print(f"NLL: {nll.median().item():.2f}")
+
+            mu = mu[:, 0]
+            sigma = sigma[:, 0]
+            all_mse = mse_criterion(test_C42a_data, mu)
+            all_mse /= (696.052 / dmax) ** 2
+            mse = all_mse.mean().item()
+
+            sigma = sigma * (dmax - dmin) / 2
+            mu = ((mu + 1) * (dmax - dmin) / 2) + dmin
         elif args.loss == 'Evidential':
             fake_data = g_model(test_params)
             gamma, v, alpha, beta = torch.chunk(fake_data, 4, dim=1) 
@@ -203,7 +217,7 @@ def main(args):
 
     if args.id >= 0:
         # Create angles for the points on the circle
-        angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
+        angles = np.linspace(0, 2 * np.pi, 400, endpoint=False)
 
         if args.dropout:
             assert args.loss == 'MSE'
@@ -219,6 +233,7 @@ def main(args):
             fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
 
             # Plot the circle
+            ax.set_theta_zero_location('S')  # 'S' is for South
             ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
             ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
             for k in np.linspace(0, n_stds, 2):
@@ -237,6 +252,37 @@ def main(args):
 
             plt.show()
 
+        elif args.loss == 'Gaussian':
+            example_test = test_C42a_data[args.id].cpu().numpy()
+            example_mu = mu[args.id].cpu().numpy()
+            example_sigma = sigma[args.id].cpu().numpy()
+            # example_var = np.minimum(example_var, np.percentile(example_var, 90))
+            print("max sigma: ",  np.max(example_sigma))
+
+            n_stds = 1
+
+            fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
+
+            # Plot the circle
+            ax.set_theta_zero_location('S')  # 'S' is for South
+            ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
+            ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
+            for k in np.linspace(0, n_stds, 2):
+                ax.fill_between(
+                    angles, (example_mu - k * example_sigma), (example_mu + k * example_sigma),
+                    alpha=0.3,
+                    edgecolor=None,
+                    facecolor='#00aeef',
+                    linewidth=0,
+                    zorder=1,
+                    label="Unc." if k == 0 else None)
+            ax.set_ylim(0, None)  
+            # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
+            # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
+            ax.set_title("Aleatoric Uncertainty")
+
+            plt.show()
+
         elif args.loss == "Evidential":
             example_test = test_C42a_data[args.id].cpu().numpy()
             example_mu = mu[args.id].cpu().numpy()
@@ -252,6 +298,7 @@ def main(args):
             fig, axs = plt.subplots(1, 2, subplot_kw={'projection': 'polar'}, figsize=(12, 5)) 
 
             # Plot the circle
+            axs[0].set_theta_zero_location('S')  # 'S' is for South
             axs[0].plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
             axs[0].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
             for k in np.linspace(0, n_stds, 2):
@@ -269,6 +316,7 @@ def main(args):
             axs[0].set_title("Aleatoric Uncertainty")
 
             # Plot the circle
+            axs[1].set_theta_zero_location('S')  # 'S' is for South
             axs[1].plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
             axs[1].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
             for k in np.linspace(0, n_stds, 2):
