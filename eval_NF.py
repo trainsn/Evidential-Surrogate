@@ -157,6 +157,7 @@ def main(args):
         fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
 
         # Plot the circle
+        ax.set_theta_zero_location('S')  # 'S' is for South
         ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
         ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
         for k in np.linspace(0, n_stds, 2):
@@ -171,9 +172,9 @@ def main(args):
         ax.set_ylim(0, None)  
         # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
         # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-        ax.set_title("Aleatoric Uncertainty")
+        ax.set_title("Aleatoric Uncertainty", fontsize=20)
 
-        plt.show()
-
+        plt.savefig(os.path.join("figs", "uncertainty_NF_id" + str(args.id) + ".png"))
+        plt.close()
 if __name__ == "__main__":
     main(parse_args())

@@ -256,9 +256,11 @@ def main(args):
             ax.set_ylim(0, None)  
             # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
             # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            ax.set_title("Epistemic Uncertainty")
+            ax.set_title("Epistemic Uncertainty", fontsize=20)
 
-            plt.show()
+            ax.tick_params(labelsize=14)  # Adjust tick label size
+
+            plt.savefig(os.path.join("figs", "uncertainty_dropout_id" + str(args.id) + ".png"))
 
         elif args.loss == 'Gaussian':
             example_test = test_C42a_data[args.id].cpu().numpy()
@@ -287,9 +289,12 @@ def main(args):
             ax.set_ylim(0, None)  
             # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
             # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            ax.set_title("Aleatoric Uncertainty")
+            ax.set_title("Aleatoric Uncertainty", fontsize=20)
 
-            plt.show()
+            ax.tick_params(labelsize=14)  # Adjust tick label size
+
+            plt.savefig(os.path.join("figs", "uncertainty_Gaussian_id" + str(args.id) + ".png"))
+            plt.close()
 
         elif args.loss == "Evidential":
             example_test = test_C42a_data[args.id].cpu().numpy()
@@ -304,6 +309,9 @@ def main(args):
             
             # Create subplots for two circles
             fig, axs = plt.subplots(1, 2, subplot_kw={'projection': 'polar'}, figsize=(12, 5)) 
+
+            # Adjust margins
+            plt.subplots_adjust(left=0.0, right=1.0)
 
             # Plot the circle
             axs[0].set_theta_zero_location('S')  # 'S' is for South
@@ -321,7 +329,8 @@ def main(args):
             axs[0].set_ylim(0, None)  
             # axs[0].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
             # axs[0].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            axs[0].set_title("Aleatoric Uncertainty")
+            axs[0].set_title("Aleatoric Uncertainty", fontsize=20)
+
 
             # Plot the circle
             axs[1].set_theta_zero_location('S')  # 'S' is for South
@@ -339,9 +348,13 @@ def main(args):
             axs[1].set_ylim(0, None)  
             # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
             # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            axs[1].set_title("Epistemic Uncertainty")
+            axs[1].set_title("Epistemic Uncertainty", fontsize=20)
 
-            plt.show()
+            for ax in axs:
+                ax.tick_params(labelsize=14)  # Adjust tick label size
+
+            plt.savefig(os.path.join("figs", "uncertainty_evidential_id" + str(args.id) + ".png"))
+            plt.close()
 
 
 if __name__ == "__main__":

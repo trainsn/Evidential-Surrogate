@@ -1,3 +1,1 @@
-python -u eval_ensemble.py --dsp 28 --loss MSE --model-paths models/model_MSE_seed0_600.pth.tar models/model_MSE_seed1_600.pth.tar models/model_MSE_seed42_600.pth.tar models/model_MSE_seed65_600.pth.tar models/model_MSE_seed411_600.pth.tar models/model_MSE_seed1342_600.pth.tar models/model_MSE_seed2345_600.pth.tar models/model_MSE_seed3407_600.pth.tar  --id 115
-
-python -u eval_ensemble.py --dsp 28 --loss MSE --model-paths models/model_MSE_seed0_600.pth.tar
+python -u eval_ensemble.py --dsp 28 --loss MSE --model-paths models/model_MSE_seed0_600.pth.tar models/model_MSE_seed1_600.pth.tar models/model_MSE_seed42_600.pth.tar models/model_MSE_seed65_600.pth.tar models/model_MSE_seed411_600.pth.tar models/model_MSE_seed1342_600.pth.tar models/model_MSE_seed2345_600.pth.tar models/model_MSE_seed3407_600.pth.tar  --id 51
