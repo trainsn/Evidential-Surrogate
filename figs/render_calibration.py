@@ -19,12 +19,16 @@ ensemble_data.shape, evidential_data.shape, x_axis.shape
 # Create the line plot
 plt.figure(figsize=(10, 6))
 plt.plot(x_axis, dropout_data, label=f'Dropout, Error = {calibration_err_dropout:.4f}')
-plt.plot(x_axis, ensemble_data, label=f'Ensemble, Error = {calibration_err_ensemble:.4f}')
+plt.plot(x_axis, ensemble_data, label=f'Ensembles, Error = {calibration_err_ensemble:.4f}')
 plt.plot(x_axis, evidential_data, label=f'Evidential, Error = {calibration_err_evidential:.4f}')
-plt.plot(x_axis, x_axis, label='ideal calibration', linestyle='--', color='gray')
-plt.title('Comparison of Observed Confidence')
-plt.xlabel('Expected Confidence Level')
-plt.ylabel('Observed Confidence Level')
-plt.legend()
+plt.plot(x_axis, x_axis, label='Ideal calibration', linestyle='--', color='gray')
+plt.xlabel('Expected Confidence Level', fontsize=20)
+plt.ylabel('Observed Confidence Level', fontsize=20)
+plt.legend(fontsize=20)
 plt.grid(True)
-plt.show()
+
+# Set the font sizes of the axis tick labels
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+
+plt.savefig('observed_conf.png')
