@@ -242,8 +242,8 @@ def main(args):
 
             # Plot the circle
             ax.set_theta_zero_location('S')  # 'S' is for South
-            ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
-            ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
+            ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
+            ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
             for k in np.linspace(0, n_stds, 2):
                 ax.fill_between(
                     angles, (example_mu - k * example_var), (example_mu + k * example_var),
@@ -275,8 +275,8 @@ def main(args):
 
             # Plot the circle
             ax.set_theta_zero_location('S')  # 'S' is for South
-            ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
-            ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
+            ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
+            ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
             for k in np.linspace(0, n_stds, 2):
                 ax.fill_between(
                     angles, (example_mu - k * example_sigma), (example_mu + k * example_sigma),
@@ -315,8 +315,8 @@ def main(args):
 
             # Plot the circle
             axs[0].set_theta_zero_location('S')  # 'S' is for South
-            axs[0].plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
-            axs[0].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
+            axs[0].plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
+            axs[0].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
             for k in np.linspace(0, n_stds, 2):
                 axs[0].fill_between(
                     angles, (example_mu - k * example_sigma), (example_mu + k * example_sigma),
@@ -334,8 +334,8 @@ def main(args):
 
             # Plot the circle
             axs[1].set_theta_zero_location('S')  # 'S' is for South
-            axs[1].plot(angles, example_test, color='#000000', linewidth=1, zorder=0, label="Train")
-            axs[1].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0, label="Train")
+            axs[1].plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
+            axs[1].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
             for k in np.linspace(0, n_stds, 2):
                 axs[1].fill_between(
                     angles, (example_mu - k * example_var), (example_mu + k * example_var),
