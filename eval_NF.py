@@ -18,6 +18,7 @@ import torch.optim as optim
 from yeast import *
 from NF.FlowNet_surrogate import ParamFlowNetCond
 import loss_helper
+import utils
 
 import pdb
 
@@ -144,37 +145,12 @@ def main(args):
         test_C42a_data = ((test_C42a_data + 1) * (dmax - dmin) / 2) + dmin
 
     if args.id >= 0:
-        # Create angles for the points on the circle
-        angles = np.linspace(0, 2*np.pi, 400, endpoint=False) 
-
         example_test = test_C42a_data[args.id].cpu().numpy()
         example_mu = mu[args.id].cpu().numpy()
         example_var = var[args.id].cpu().numpy()
         # example_var = np.minimum(example_var, np.percentile(example_var, 90))
 
-        n_stds = 1
+        utils.render_one_circle("Ensemble", "Aleatoric", args.id, example_test, example_mu, example_var)
 
-        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
-
-        # Plot the circle
-        ax.set_theta_zero_location('S')  # 'S' is for South
-        ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
-        ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
-        for k in np.linspace(0, n_stds, 2):
-            ax.fill_between(
-                angles, (example_mu - k * example_var), (example_mu + k * example_var),
-                alpha=0.3,
-                edgecolor=None,
-                facecolor='#00aeef',
-                linewidth=0,
-                zorder=1,
-                label="Unc." if k == 0 else None)
-        ax.set_ylim(0, None)  
-        # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
-        # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-        ax.set_title("Aleatoric Uncertainty", fontsize=20)
-
-        plt.savefig(os.path.join("figs", "uncertainty_NF_id" + str(args.id) + ".png"))
-        plt.close()
 if __name__ == "__main__":
     main(parse_args())

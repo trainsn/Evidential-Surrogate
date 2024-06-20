@@ -224,8 +224,6 @@ def main(args):
 
 
     if args.id >= 0:
-        # Create angles for the points on the circle
-        angles = np.linspace(0, 2 * np.pi, 400, endpoint=False)
 
         if args.dropout:
             assert args.loss == 'MSE'
@@ -236,31 +234,7 @@ def main(args):
             # example_var = np.minimum(example_var, np.percentile(example_var, 90))
             print("max var: ",  np.max(example_var))
 
-            n_stds = 1
-
-            fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
-
-            # Plot the circle
-            ax.set_theta_zero_location('S')  # 'S' is for South
-            ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
-            ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
-            for k in np.linspace(0, n_stds, 2):
-                ax.fill_between(
-                    angles, (example_mu - k * example_var), (example_mu + k * example_var),
-                    alpha=0.3,
-                    edgecolor=None,
-                    facecolor='#00aeef',
-                    linewidth=0,
-                    zorder=1,
-                    label="Unc." if k == 0 else None)
-            ax.set_ylim(0, None)  
-            # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
-            # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            ax.set_title("Epistemic Uncertainty", fontsize=20)
-
-            ax.tick_params(labelsize=14)  # Adjust tick label size
-
-            plt.savefig(os.path.join("figs", "uncertainty_dropout_id" + str(args.id) + ".png"))
+            utils.render_one_circle("Dropout", "Epistemic", args.id, example_test, example_mu, example_var)
 
         elif args.loss == 'Gaussian':
             example_test = test_C42a_data[args.id].cpu().numpy()
@@ -269,32 +243,7 @@ def main(args):
             # example_var = np.minimum(example_var, np.percentile(example_var, 90))
             print("max sigma: ",  np.max(example_sigma))
 
-            n_stds = 1
-
-            fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(6, 5))
-
-            # Plot the circle
-            ax.set_theta_zero_location('S')  # 'S' is for South
-            ax.plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
-            ax.plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
-            for k in np.linspace(0, n_stds, 2):
-                ax.fill_between(
-                    angles, (example_mu - k * example_sigma), (example_mu + k * example_sigma),
-                    alpha=0.3,
-                    edgecolor=None,
-                    facecolor='#00aeef',
-                    linewidth=0,
-                    zorder=1,
-                    label="Unc." if k == 0 else None)
-            ax.set_ylim(0, None)  
-            # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
-            # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            ax.set_title("Aleatoric Uncertainty", fontsize=20)
-
-            ax.tick_params(labelsize=14)  # Adjust tick label size
-
-            plt.savefig(os.path.join("figs", "uncertainty_Gaussian_id" + str(args.id) + ".png"))
-            plt.close()
+            utils.render_one_circle("Gaussian", "Aleatoric", args.id, example_test, example_mu, example_sigma)
 
         elif args.loss == "Evidential":
             example_test = test_C42a_data[args.id].cpu().numpy()
@@ -305,57 +254,11 @@ def main(args):
             # example_var = np.minimum(example_var, np.percentile(example_var, 90))
             print("max sigma: ", np.max(example_sigma), "max var: ",  np.max(example_var))
 
-            n_stds = 1
-            
-            # Create subplots for two circles
-            fig, axs = plt.subplots(1, 2, subplot_kw={'projection': 'polar'}, figsize=(12, 5)) 
-
-            # Adjust margins
-            plt.subplots_adjust(left=0.0, right=1.0)
-
-            # Plot the circle
-            axs[0].set_theta_zero_location('S')  # 'S' is for South
-            axs[0].plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
-            axs[0].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
-            for k in np.linspace(0, n_stds, 2):
-                axs[0].fill_between(
-                    angles, (example_mu - k * example_sigma), (example_mu + k * example_sigma),
-                    alpha=0.3,
-                    edgecolor=None,
-                    facecolor='#00aeef',
-                    linewidth=0,
-                    zorder=1,
-                    label="Unc." if k == 0 else None)
-            axs[0].set_ylim(0, None)  
-            # axs[0].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
-            # axs[0].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            axs[0].set_title("Aleatoric Uncertainty", fontsize=20)
-
-
-            # Plot the circle
-            axs[1].set_theta_zero_location('S')  # 'S' is for South
-            axs[1].plot(angles, example_test, color='#000000', linewidth=1, zorder=0)
-            axs[1].plot(angles, example_mu, color='#0000ff', linewidth=1, zorder=0)
-            for k in np.linspace(0, n_stds, 2):
-                axs[1].fill_between(
-                    angles, (example_mu - k * example_var), (example_mu + k * example_var),
-                    alpha=0.3,
-                    edgecolor=None,
-                    facecolor='#00aeef',
-                    linewidth=0,
-                    zorder=1,
-                    label="Unc." if k == 0 else None)
-            axs[1].set_ylim(0, None)  
-            # axs[1].set_yticks(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis ticks
-            # axs[1].set_yticklabels(np.arange(0, 1.1 * max_mu, 1))  # Set y-axis tick labels
-            axs[1].set_title("Epistemic Uncertainty", fontsize=20)
-
-            for ax in axs:
-                ax.tick_params(labelsize=14)  # Adjust tick label size
-
-            plt.savefig(os.path.join("figs", "uncertainty_evidential_id" + str(args.id) + ".png"))
-            plt.close()
-
+            if args.active:
+                utils.render_one_circle("Evidential", "Epistemic", args.id, example_test, example_mu, example_var, True)
+            else:
+                utils.render_two_circles("Evidential", args.id, example_test, example_mu, example_sigma, example_var)
+                
 
 if __name__ == "__main__":
     main(parse_args())
