@@ -32,7 +32,7 @@ def gen_cutoff_uncertainty(all_mse, var, method):
         cutoff_psnrs.append(20. * np.log10(2.) - 10. * np.log10(cutoff_mse))
     np.save(os.path.join("figs", method + "_cutoff_uncertainty_psnrs"), np.array(cutoff_psnrs))
 
-def gen_ret_value(all_mse, data, method):
+def gen_ret_value(all_mse, data, active_method):
     percentiles = np.linspace(0, 1, 51, endpoint=True)
     ret_inds = (percentiles * data.numel()).astype(int)
     _, sorted_dataidx = torch.sort(data.flatten(), descending=True)
@@ -41,7 +41,19 @@ def gen_ret_value(all_mse, data, method):
     for ret in ret_inds[1:]:
         ret_mse = all_mse.flatten()[sorted_dataidx[:ret]].mean().item()
         ret_psnrs.append(20. * np.log10(2.) - 10. * np.log10(ret_mse))
-    np.save(os.path.join("figs", method + "_ret_value_psnrs"), np.array(ret_psnrs))
+    np.save(os.path.join("figs", active_method + "_ret_value_psnrs"), np.array(ret_psnrs))
+
+def gen_ret_uncertainty(all_mse, uncertainty, active_method):
+    percentiles = np.linspace(0, 1, 31, endpoint=True)
+    ret_inds = (percentiles * uncertainty.numel()).astype(int)
+    _, sorted_dataidx = torch.sort(uncertainty.flatten(), descending=True)
+
+    ret_psnrs = []
+    for ret in ret_inds[1:]:
+        ret_mse = all_mse.flatten()[sorted_dataidx[:ret]].mean().item()
+        ret_psnrs.append(20. * np.log10(2.) - 10. * np.log10(ret_mse))
+    pdb.set_trace()
+    np.save(os.path.join("figs", active_method + "_ret_uncertainty_psnrs"), np.array(ret_psnrs))
 
 def gen_calibration(mu, var, gt):
     expected_p = np.linspace(0, 1, 40, endpoint=True)
@@ -56,7 +68,7 @@ def gen_calibration(mu, var, gt):
     calibration_err = np.abs(expected_p - observed_p).mean()
     return calibration_err, observed_p
 
-def render_one_circle(approach, uncertainty_type, input_id, example_test, example_mu, example_var, active=False):
+def render_one_circle(approach, uncertainty_type, input_id, example_test, example_mu, example_var, active_method=""):
     # Create angles for the points on the circle
     angles = np.linspace(0, 2 * np.pi, 400, endpoint=False)
 
@@ -84,7 +96,7 @@ def render_one_circle(approach, uncertainty_type, input_id, example_test, exampl
 
     ax.tick_params(labelsize=14)  # Adjust tick label size
 
-    plt.savefig(os.path.join("figs", "uncertainty_" + approach + "_id" + str(input_id) + ("_active" if active else "") + ".png"))
+    plt.savefig(os.path.join("figs", "uncertainty_" + approach + "_id" + str(input_id) + active_method + ".png"))
     plt.close()
 
 def render_two_circles(approach, input_id, example_test, example_mu, example_sigma, example_var):    

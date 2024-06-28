@@ -188,11 +188,20 @@ def main(args):
             mu = gamma[:, 0]
             all_mse = mse_criterion(test_C42a_data, mu)
             all_mse /= (696.052 / dmax) ** 2
-            if args.active:
-                utils.gen_ret_value(all_mse, test_C42a_data, "activebase")
             mse = all_mse.mean().item()
             sigma = torch.sqrt(beta / (alpha - 1 + 1e-6))[:, 0]    
             var = torch.sqrt(beta / (v * (alpha - 1 + 1e-6)))[:, 0]
+            if not args.active:
+                np.save(os.path.join("figs", "singleloop_epistemic_uncertainty.npy"), var.cpu().numpy())
+            
+            if args.active:
+                title = "active"
+            else:
+                title = "singleloop"
+            utils.gen_ret_value(all_mse, test_C42a_data, title)
+            singleloop_epistemic_uncertainty = np.load(os.path.join("figs", "singleloop_epistemic_uncertainty.npy"))
+            singleloop_epistemic_uncertainty = torch.from_numpy(singleloop_epistemic_uncertainty).to(device)
+            utils.gen_ret_uncertainty(all_mse, singleloop_epistemic_uncertainty, title)
 
             title = "evidential"
             if args.active:
@@ -255,9 +264,10 @@ def main(args):
             print("max sigma: ", np.max(example_sigma), "max var: ",  np.max(example_var))
 
             if args.active:
-                utils.render_one_circle("Evidential", "Epistemic", args.id, example_test, example_mu, example_var, True)
+                utils.render_one_circle("Evidential", "Epistemic", args.id, example_test, example_mu, example_var, "_active")
             else:
-                utils.render_two_circles("Evidential", args.id, example_test, example_mu, example_sigma, example_var)
+                utils.render_one_circle("Evidential", "Epistemic", args.id, example_test, example_mu, example_var)
+                # utils.render_two_circles("Evisdential", args.id, example_test, example_mu, example_sigma, example_var)
                 
 
 if __name__ == "__main__":
