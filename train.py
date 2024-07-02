@@ -45,6 +45,8 @@ def parse_args():
                         help="enable spectral normalization")
     parser.add_argument("--active", action="store_true", default=False,
                         help="active learning version")
+    parser.add_argument("--lam", type=float, default=100.0,
+                        help="active learning lambda parameter")
 
     parser.add_argument("--lr", type=float, default=1e-3,
                         help="learning rate (default: 1e-3)")
@@ -90,7 +92,7 @@ def main(args):
     if args.dropout: 
         network_str += "_dp" 
     if args.active: 
-        network_str += "_activebase" 
+        network_str += "_active" + str(int(args.lam)) 
 
     # set random seed
     np.random.seed(args.seed)
@@ -151,7 +153,7 @@ def main(args):
             print("=> loaded checkpoint {} (epoch {})"
                 .format(args.resume, checkpoint["epoch"]))
             
-    params, C42a_data, sample_weight, _, _ = ReadYeastDataset(args.active)
+    params, C42a_data, sample_weight, _, _ = ReadYeastDataset(args.active, args.lam)
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
     train_split = torch.from_numpy(np.load('train_split.npy'))
     if args.active:

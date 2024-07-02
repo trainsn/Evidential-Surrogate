@@ -45,6 +45,8 @@ def parse_args():
                         help="enable spectral normalization")
     parser.add_argument("--active", action="store_true", default=False,
                         help="active learning version")
+    parser.add_argument("--lam", type=float, default=100.0,
+                        help="active learning lambda parameter")
 
     parser.add_argument("--lr", type=float, default=1e-3,
                         help="learning rate (default: 1e-3)")
@@ -66,7 +68,7 @@ def parse_args():
     parser.add_argument("--check-every", type=int, default=200,
                         help="save checkpoint every given number of epochs")
     
-    parser.add_argument("--id", type=int, default=0,
+    parser.add_argument("--id", type=int, default=-1,
                         help="instance id in the testing set")
 
     return parser.parse_args()
@@ -129,7 +131,7 @@ def main(args):
             print("=> loaded checkpoint {} (epoch {})"
                     .format(args.resume, checkpoint["epoch"]))
             
-    params, C42a_data, sample_weight, dmin, dmax = ReadYeastDataset(args.active)
+    params, C42a_data, sample_weight, dmin, dmax = ReadYeastDataset(args.active, args.lam)
     params, C42a_data, sample_weight = torch.from_numpy(params).float().to(device), torch.from_numpy(C42a_data).float().to(device), torch.from_numpy(sample_weight).float().to(device)
     train_split = torch.from_numpy(np.load('train_split.npy'))
     if args.active:
@@ -195,7 +197,7 @@ def main(args):
                 np.save(os.path.join("figs", "singleloop_epistemic_uncertainty.npy"), var.cpu().numpy())
             
             if args.active:
-                title = "active"
+                title = "active" + str(int(args.lam))
             else:
                 title = "singleloop"
             utils.gen_ret_value(all_mse, test_C42a_data, title)
@@ -205,12 +207,12 @@ def main(args):
 
             title = "evidential"
             if args.active:
-                title += "_active"
+                title += "_active" + str(int(args.lam))
             utils.gen_cutoff_uncertainty(all_mse, var, title)
             calibration_err, observed_p = utils.gen_calibration(mu, var, test_C42a_data)
             title = "evidential_observed_conf"
             if args.active:
-                title = "evidential_active_observed_conf"
+                title = "evidential_active"  + str(int(args.lam)) + "_observed_conf"
             np.save(os.path.join("figs", title), observed_p)
             print(f"Calibration Error: {calibration_err:.4f}")
 
@@ -264,7 +266,7 @@ def main(args):
             print("max sigma: ", np.max(example_sigma), "max var: ",  np.max(example_var))
 
             if args.active:
-                utils.render_one_circle("Evidential", "Epistemic", args.id, example_test, example_mu, example_var, "_active")
+                utils.render_one_circle("Evidential", "Epistemic", args.id, example_test, example_mu, example_var, "_active" + str(int(args.lam)))
             else:
                 utils.render_one_circle("Evidential", "Epistemic", args.id, example_test, example_mu, example_var)
                 # utils.render_two_circles("Evisdential", args.id, example_test, example_mu, example_sigma, example_var)

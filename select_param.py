@@ -78,7 +78,7 @@ def main(args):
             print("=> loaded checkpoint {} (epoch {})"
                     .format(args.resume, checkpoint["epoch"]))
             
-    params, C42a_data, sample_weight = ReadYeastDataset(active=False)
+    params, C42a_data, sample_weight, _, _ = ReadYeastDataset(active=False)
     params, C42a_data, sample_weight = torch.from_numpy(params).float().cuda(), torch.from_numpy(C42a_data).float().cuda(), torch.from_numpy(sample_weight).float().cuda()
     train_split = torch.from_numpy(np.load('train_split.npy'))
     train_params = params[train_split]
@@ -122,7 +122,7 @@ def main(args):
     selected_inputs[:, 25:32] = np.random.rand(args.k, 7) * 2 - 1
 
      # Open file and save the points
-    with open("/fs/ess/PAS0027/yeast_polarization_Neng/run_base1/list_of_parameters", 'w') as file:
+    with open("/fs/ess/PAS0027/yeast_polarization_Neng/run_lambda" + str(int(args.lam)) + "/list_of_parameters", 'w') as file:
         for input in selected_inputs:
             # Create a string for each point, joining coordinates with a space
             input_str = '\t'.join(f"{coord:.6f}" for coord in input)

@@ -17,7 +17,7 @@ def read_data_from_file(filename):
     return np.array(data)
 
 
-def ReadYeastDataset(active):
+def ReadYeastDataset(active, lam):
     params = []
     C42a_dat = []
     PF_C42a = []
@@ -42,7 +42,7 @@ def ReadYeastDataset(active):
         set_range = range(1, 25)
         # Load the data from files
         for i in set_range:
-            set_dir = os.path.join('/fs/ess/PAS0027/yeast_polarization_Neng/run', f'set{i}')
+            set_dir = os.path.join('/fs/ess/PAS0027/yeast_polarization_Neng/run_lambda' + str(int(lam)), f'set{i}')
             if os.path.exists(os.path.join(set_dir, 'C42a_dat')):
                 params.append(read_data_from_file(os.path.join(set_dir, 'list_of_parameters')))
                 C42a_dat.append(read_data_from_file(os.path.join(set_dir, 'C42a_dat')))

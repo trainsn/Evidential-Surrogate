@@ -52,7 +52,6 @@ def gen_ret_uncertainty(all_mse, uncertainty, active_method):
     for ret in ret_inds[1:]:
         ret_mse = all_mse.flatten()[sorted_dataidx[:ret]].mean().item()
         ret_psnrs.append(20. * np.log10(2.) - 10. * np.log10(ret_mse))
-    pdb.set_trace()
     np.save(os.path.join("figs", active_method + "_ret_uncertainty_psnrs"), np.array(ret_psnrs))
 
 def gen_calibration(mu, var, gt):

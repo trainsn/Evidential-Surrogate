@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Load the data files
-base_psnrs = np.load('activebase_ret_value_psnrs.npy')[::-1]
-active_psnrs = np.load('active_ret_value_psnrs.npy')[::-1]
+activebase_psnrs = np.load('active0_ret_value_psnrs.npy')[::-1]
+active25_psnrs = np.load('active25_ret_value_psnrs.npy')[::-1]
+active50_psnrs = np.load('active50_ret_value_psnrs.npy')[::-1]
+active100_psnrs = np.load('active100_ret_value_psnrs.npy')[::-1]
 singleloop_psnrs = np.load('singleloop_ret_value_psnrs.npy')[::-1]
 
 # Generate x values
@@ -11,8 +13,10 @@ x_values = np.linspace(0, 100, 51, endpoint=True)[1:]
 
 # Plotting the data
 plt.figure(figsize=(10, 6))
-plt.plot(x_values, base_psnrs, label='Active: Proximity')
-plt.plot(x_values, active_psnrs, label='Active: Uncertainty + Proximity')
+plt.plot(x_values, activebase_psnrs, label='Active: Proximity')
+plt.plot(x_values, active25_psnrs, label='Active: Uncertainty + Proximity ($\Phi=25$)')
+plt.plot(x_values, active50_psnrs, label='Active: Uncertainty + Proximity ($\Phi=50$)')
+plt.plot(x_values, active100_psnrs, label='Active: Uncertainty + Proximity ($\Phi=100$)')
 plt.plot(x_values, singleloop_psnrs, label='Single Loop')
 
 plt.xlabel('Data Value Percentile', fontsize=20)
@@ -27,4 +31,4 @@ plt.yticks(fontsize=20)
 # Reverse the x-axis
 plt.gca().invert_xaxis()
 
-plt.savefig("rentetion_datavalue_psnrs.png")
+plt.savefig("retention_datavalue_psnrs.png")
